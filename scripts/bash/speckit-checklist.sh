@@ -377,7 +377,7 @@ cmd_show() {
 
 main() {
   parse_common_flags "$@"
-  set -- "${REMAINING_ARGS[@]}"
+  set -- "${REMAINING_ARGS[@]:-}"
 
   if [[ $# -eq 0 ]]; then
     show_help

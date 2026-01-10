@@ -200,11 +200,12 @@ interface StateEvent {
 
 Fix commands that are called but don't exist:
 
-- [ ] Implement `speckit context` (replaces check-prerequisites.sh)
-- [ ] Implement `speckit feature create` (replaces create-new-feature.sh)
-- [ ] Complete `speckit roadmap update` implementation
-- [ ] Complete `speckit tasks mark` implementation
-- [ ] Complete `speckit checklist` subcommands
+- [x] Implement `speckit context` (replaces check-prerequisites.sh)
+- [x] Implement `speckit feature create` (replaces create-new-feature.sh)
+- [x] Complete `speckit roadmap update` implementation
+- [x] Complete `speckit tasks mark` implementation
+- [x] Complete `speckit checklist` subcommands
+- [x] Fix REMAINING_ARGS issue across all scripts
 - [ ] Add `--json` flag to all commands consistently
 - [ ] Add tests for each new command
 

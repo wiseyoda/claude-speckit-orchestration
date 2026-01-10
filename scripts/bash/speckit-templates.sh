@@ -459,7 +459,7 @@ cmd_copy() {
 
 main() {
   parse_common_flags "$@"
-  set -- "${REMAINING_ARGS[@]}"
+  set -- "${REMAINING_ARGS[@]:-}"
 
   local no_backup=false
 
