@@ -60,10 +60,14 @@ description: 'Project constitution template'
 
 ## Technology Stack
 
-See [`tech-stack.md`](./tech-stack.md) for the complete list of approved technologies and versions.
+<!-- Optional: Link to tech-stack.md if it exists, otherwise document key technologies here -->
+
+**Core Technologies**: [List key technologies, e.g., TypeScript, React, PostgreSQL]
 
 **Deviation Process**: Any deviation from approved technologies MUST be documented in the
-feature's `plan.md` with clear justification and approval from project lead.
+feature's `plan.md` with clear justification.
+
+> See [`tech-stack.md`](./tech-stack.md) for complete list of approved technologies (if exists).
 
 ## Development Workflow
 

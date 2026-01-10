@@ -429,12 +429,14 @@ If `steps.plan.status === "completed"`:
 
 **4b. Load Memory Documents**
 
-Load these from `{config.memory_path}` for compliance checking:
+Load available documents from `{config.memory_path}` for compliance checking:
 
-- `constitution.md` - Architectural principles
-- `tech-stack.md` - Approved technologies
-- `coding-standards.md` - Code patterns
-- `testing-strategy.md` - Test requirements
+- `constitution.md` - Architectural principles (REQUIRED)
+- `tech-stack.md` - Approved technologies (if exists)
+- `coding-standards.md` - Code patterns (if exists)
+- `testing-strategy.md` - Test requirements (if exists)
+
+> **Note**: Only `constitution.md` is required. Other memory documents enhance compliance checking when present.
 
 **4c. Run Plan Logic**
 
@@ -449,17 +451,17 @@ Execute the logic from `/speckit.plan`:
 
 **4d. Ensure Memory Compliance**
 
-Cross-check plan against memory documents:
+Cross-check plan against available memory documents:
 
-- Tech stack choices must exist in tech-stack.md
-- Architecture must follow constitution.md principles
-- File structure must follow coding-standards.md
-- Test approach must follow testing-strategy.md
+- Architecture MUST follow constitution.md principles (required)
+- Tech stack choices should exist in tech-stack.md (if present)
+- File structure should follow coding-standards.md (if present)
+- Test approach should follow testing-strategy.md (if present)
 
 If violations found:
 
-- Auto-correct if clear fix exists
-- Ask user if ambiguous (with recommendation)
+- Constitution violations: Block until resolved
+- Other document violations: Warn and recommend fix, but don't block
 
 **4e. Update State**
 

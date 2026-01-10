@@ -80,21 +80,23 @@ Scan `.specify/memory/` for all markdown files:
 
 ```text
 .specify/memory/
-├── constitution.md       (REQUIRED - project governance)
-├── tech-stack.md         (REQUIRED - approved technologies)
-├── coding-standards.md   (REQUIRED - code conventions)
-├── api-standards.md      (REQUIRED - API patterns)
-├── security-checklist.md (REQUIRED - security requirements)
-├── testing-strategy.md   (REQUIRED - test patterns)
-├── design-system.md      (OPTIONAL - visual standards)
-├── glossary.md           (OPTIONAL - domain terms)
+├── constitution.md        (REQUIRED - project governance, principles, constraints)
+├── tech-stack.md          (RECOMMENDED - approved technologies)
+├── coding-standards.md    (RECOMMENDED - code conventions)
+├── api-standards.md       (RECOMMENDED - API patterns)
+├── security-checklist.md  (RECOMMENDED - security requirements)
+├── testing-strategy.md    (RECOMMENDED - test patterns)
+├── design-system.md       (OPTIONAL - visual standards)
+├── glossary.md            (OPTIONAL - domain terms)
 ├── performance-budgets.md (OPTIONAL - performance targets)
-├── ux-patterns.md        (OPTIONAL - UX conventions)
-└── adrs/                 (OPTIONAL - architecture decisions)
+├── ux-patterns.md         (OPTIONAL - UX conventions)
+└── adrs/                  (OPTIONAL - architecture decisions)
     └── *.md
 ```
 
-Report any missing REQUIRED documents.
+Report if `constitution.md` is missing (required). For RECOMMENDED documents, report if they don't exist but suggest creation rather than erroring.
+
+> **Note**: Only `constitution.md` is strictly required. It should contain project principles that guide all other decisions. Other documents can be generated on-demand with `speckit memory init [document]`.
 
 ### 3. Detect Errant Markdown Files
 
@@ -194,14 +196,16 @@ Flag any conflicts where a memory document contradicts constitution principles.
 
 #### E. Gap Analysis
 
-| Document | Expected Content |
-|----------|-----------------|
-| `constitution.md` | All 11 principles with rationales |
-| `tech-stack.md` | All approved packages with versions |
-| `coding-standards.md` | TypeScript, React, file naming conventions |
-| `api-standards.md` | Request/response formats, error handling |
-| `security-checklist.md` | OWASP top 10, child-safety measures |
-| `testing-strategy.md` | Unit, integration, E2E, accessibility testing |
+| Document | Status | Expected Content |
+|----------|--------|------------------|
+| `constitution.md` | REQUIRED | Project principles with rationales |
+| `tech-stack.md` | RECOMMENDED | Approved packages with versions (if exists) |
+| `coding-standards.md` | RECOMMENDED | Code conventions (if exists) |
+| `api-standards.md` | RECOMMENDED | Request/response formats (if exists) |
+| `security-checklist.md` | RECOMMENDED | Security requirements (if exists) |
+| `testing-strategy.md` | RECOMMENDED | Test patterns (if exists) |
+
+> **Minimal Viable Memory**: A project can function with only `constitution.md`. Other documents should be added as the project grows and decisions are made.
 
 ---
 

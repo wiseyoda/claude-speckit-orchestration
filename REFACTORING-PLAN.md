@@ -237,15 +237,15 @@ Migrate to v2.0 schema:
   - All tasks `[X]` → implement complete
 - [ ] Simplify `speckit doctor` recovery logic
 
-### Phase 4: Memory Simplification (P2) (1-2 hours)
+### Phase 4: Memory Simplification (P2) (1-2 hours) ✅ COMPLETE
 
 Make memory documents optional:
 
-- [ ] Update memory command to only require `constitution.md`
-- [ ] Other docs become "recommended" not "required"
-- [ ] Update templates to generate minimal constitution
-- [ ] Update orchestrate to work without optional docs
-- [ ] Add `speckit memory init` to generate optional docs on demand
+- [x] Update memory command to only require `constitution.md`
+- [x] Other docs become "recommended" not "required"
+- [x] Update templates to generate minimal constitution
+- [x] Update orchestrate to work without optional docs
+- [ ] Add `speckit memory init` to generate optional docs on demand (deferred)
 
 ### Phase 5: Command Cleanup (P2) (2-3 hours)
 
