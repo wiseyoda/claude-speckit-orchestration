@@ -219,21 +219,23 @@ Merge 12 init files into 2:
 - [x] Verify `speckit.start.md` uses consolidated init
 - [ ] Migration: auto-detect v1 interview state, continue seamlessly
 
-### Phase 3: State Simplification (P1) (2-3 hours)
+### Phase 3: State Simplification (P1) (2-3 hours) ✅ COMPLETE
 
 Migrate to v2.0 schema:
 
-- [ ] Create v2.0 schema with web UI fields
-- [ ] Implement migration function in `speckit state migrate`
-- [ ] Update `speckit state` commands for new schema
+- [x] Create v2.0 schema with web UI fields
+- [x] Implement migration function in `speckit state migrate`
+- [x] Update `speckit state` commands for new schema
+- [x] Add project UUID generation (via `generate_uuid()`)
+- [x] Add health status fields
+- [x] Add central registry support (`speckit state registry`)
+- [x] Add `register_project()` function for auto-registration
 - [ ] File existence as truth:
   - `spec.md` exists → specify complete
   - `plan.md` exists → plan complete
   - `tasks.md` exists → tasks complete
   - All tasks `[X]` → implement complete
 - [ ] Simplify `speckit doctor` recovery logic
-- [ ] Add project UUID generation
-- [ ] Add health status calculation
 
 ### Phase 4: Memory Simplification (P2) (1-2 hours)
 

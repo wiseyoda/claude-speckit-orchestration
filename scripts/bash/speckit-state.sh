@@ -24,22 +24,48 @@ source "${SCRIPT_DIR}/lib/json.sh"
 
 readonly STATE_VERSION="2.0"
 
-# Default state template
+# Central registry path
+readonly SPECKIT_REGISTRY="${HOME}/.speckit/registry.json"
+
+# Generate a UUID v4
+generate_uuid() {
+  if command -v uuidgen &>/dev/null; then
+    uuidgen | tr '[:upper:]' '[:lower:]'
+  elif [[ -f /proc/sys/kernel/random/uuid ]]; then
+    cat /proc/sys/kernel/random/uuid
+  else
+    # Fallback: use bash random + timestamp
+    local n
+    n=$(date +%s%N 2>/dev/null || date +%s)$RANDOM$RANDOM
+    printf '%08x-%04x-4%03x-%04x-%012x\n' \
+      $((n % 0xFFFFFFFF)) \
+      $((RANDOM % 0xFFFF)) \
+      $((RANDOM % 0xFFF)) \
+      $((0x8000 | RANDOM % 0x3FFF)) \
+      $((n % 0xFFFFFFFFFFFF))
+  fi
+}
+
+# Default state template - v2.0 with web UI support
 read -r -d '' DEFAULT_STATE << 'EOF' || true
 {
-  "version": "2.0",
+  "schema_version": "2.0",
+  "project": {
+    "id": null,
+    "name": null,
+    "path": null,
+    "description": null,
+    "type": null,
+    "criticality": null,
+    "created_at": null,
+    "updated_at": null
+  },
   "config": {
     "roadmap_path": "ROADMAP.md",
     "memory_path": ".specify/memory/",
     "specs_path": "specs/",
     "scripts_path": ".specify/scripts/",
     "templates_path": ".specify/templates/"
-  },
-  "project": {
-    "name": null,
-    "description": null,
-    "type": null,
-    "criticality": null
   },
   "interview": {
     "status": "not_started",
@@ -51,24 +77,37 @@ read -r -d '' DEFAULT_STATE << 'EOF' || true
     "completed_at": null
   },
   "orchestration": {
-    "phase_number": null,
-    "phase_name": null,
-    "branch": null,
-    "step": null,
-    "status": "not_started",
-    "steps": {
-      "specify": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "clarify": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "plan": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "tasks": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "analyze": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "checklist": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "implement": { "status": "pending", "completed_at": null, "tasks_completed": 0, "tasks_total": 0, "artifacts": [] },
-      "verify": { "status": "pending", "completed_at": null, "artifacts": [] }
+    "phase": {
+      "number": null,
+      "name": null,
+      "branch": null,
+      "status": "not_started"
+    },
+    "step": {
+      "current": null,
+      "index": 0,
+      "status": "not_started"
+    },
+    "progress": {
+      "tasks_completed": 0,
+      "tasks_total": 0,
+      "percentage": 0
     }
   },
-  "history": [],
-  "last_updated": null
+  "health": {
+    "status": "unknown",
+    "last_check": null,
+    "issues": []
+  },
+  "actions": {
+    "available": [],
+    "pending": [],
+    "history": []
+  },
+  "ui": {
+    "last_sync": null,
+    "notifications": []
+  }
 }
 EOF
 
@@ -92,16 +131,24 @@ COMMANDS:
 
     init                Initialize a new state file
                         Creates .specify/orchestration-state.json
+                        Generates project UUID for web UI support
 
-    reset               Reset state to defaults (keeps config)
+    reset               Reset state to defaults (keeps project/config)
 
     reset --full        Reset entire state including config
 
-    validate            Validate state file structure
+    validate            Validate state file structure (v2.0 schema)
 
-    migrate             Migrate state file from v1.0 to v2.0
+    migrate             Migrate state file from v1.x to v2.0
                         Preserves all existing data
                         Creates backup before migration
+                        Generates UUID and registers with central registry
+
+    registry [cmd]      Manage central project registry
+                        list  - List all registered projects
+                        sync  - Update last_seen for current project
+                        clean - Remove stale projects
+                        path  - Show registry file path
 
     path                Print the state file path
 
@@ -116,6 +163,8 @@ EXAMPLES:
     speckit state set .project.name=MyApp # Set project name
     speckit state init                    # Create new state file
     speckit state validate                # Check state validity
+    speckit state migrate                 # Upgrade to v2.0 schema
+    speckit state registry list           # List all projects
 EOF
 }
 
@@ -202,6 +251,41 @@ cmd_set() {
   fi
 }
 
+# Register project in central registry
+register_project() {
+  local project_id="$1"
+  local project_path="$2"
+  local project_name="$3"
+
+  local registry_dir
+  registry_dir="$(dirname "$SPECKIT_REGISTRY")"
+
+  # Create registry directory if needed
+  if [[ ! -d "$registry_dir" ]]; then
+    mkdir -p "$registry_dir"
+  fi
+
+  # Create registry file if it doesn't exist
+  if [[ ! -f "$SPECKIT_REGISTRY" ]]; then
+    echo '{"projects": {}}' > "$SPECKIT_REGISTRY"
+  fi
+
+  # Add/update project in registry
+  local temp_file
+  temp_file=$(mktemp)
+  local timestamp
+  timestamp="$(iso_timestamp)"
+
+  jq --arg id "$project_id" \
+     --arg path "$project_path" \
+     --arg name "$project_name" \
+     --arg ts "$timestamp" \
+     '.projects[$id] = {"path": $path, "name": $name, "registered_at": $ts, "last_seen": $ts}' \
+     "$SPECKIT_REGISTRY" > "$temp_file"
+
+  mv "$temp_file" "$SPECKIT_REGISTRY"
+}
+
 # Initialize state file
 cmd_init() {
   local force="${1:-}"
@@ -209,6 +293,8 @@ cmd_init() {
   state_file="$(get_state_file)"
   local specify_dir
   specify_dir="$(get_specify_dir)"
+  local repo_root
+  repo_root="$(get_repo_root)"
 
   # Check if state file exists
   if [[ -f "$state_file" ]] && [[ "$force" != "--force" ]]; then
@@ -222,16 +308,38 @@ cmd_init() {
   # Ensure .specify directory exists
   ensure_dir "$specify_dir"
 
-  # Create state file
+  # Generate new project ID and timestamp
+  local project_id
+  project_id="$(generate_uuid)"
   local timestamp
   timestamp="$(iso_timestamp)"
+  local project_name
+  project_name="$(basename "$repo_root")"
 
-  echo "$DEFAULT_STATE" | jq --arg ts "$timestamp" '.last_updated = $ts' > "$state_file"
+  # Create state file with populated fields
+  echo "$DEFAULT_STATE" | jq \
+    --arg id "$project_id" \
+    --arg path "$repo_root" \
+    --arg name "$project_name" \
+    --arg ts "$timestamp" \
+    '
+      .project.id = $id |
+      .project.path = $path |
+      .project.name = $name |
+      .project.created_at = $ts |
+      .project.updated_at = $ts |
+      .health.status = "initializing" |
+      .health.last_check = $ts
+    ' > "$state_file"
+
+  # Register in central registry
+  register_project "$project_id" "$repo_root" "$project_name"
 
   log_success "Created state file: $state_file"
+  log_info "Project ID: $project_id"
 
   if is_json_output; then
-    echo "{\"created\": \"$state_file\"}"
+    echo "{\"created\": \"$state_file\", \"project_id\": \"$project_id\"}"
   fi
 }
 
@@ -254,17 +362,19 @@ cmd_reset() {
     fi
     cmd_init --force
   else
-    # Partial reset - keep config, reset interview and orchestration
-    if ! confirm "Reset interview and orchestration state (config preserved)?"; then
+    # Partial reset - keep project and config, reset interview and orchestration
+    if ! confirm "Reset interview and orchestration state (project/config preserved)?"; then
       log_info "Aborted"
       exit 0
     fi
 
     local temp_file
     temp_file=$(mktemp)
+    local timestamp
+    timestamp="$(iso_timestamp)"
 
-    # Reset interview and orchestration, preserve config
-    jq --arg ts "$(iso_timestamp)" '
+    # Reset interview, orchestration, health, and actions - preserve project and config
+    jq --arg ts "$timestamp" '
       .interview = {
         "status": "not_started",
         "current_phase": 0,
@@ -275,27 +385,25 @@ cmd_reset() {
         "completed_at": null
       } |
       .orchestration = {
-        "phase_number": null,
-        "phase_name": null,
-        "branch": null,
-        "step": null,
-        "status": "not_started",
-        "steps": {
-          "specify": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "clarify": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "plan": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "tasks": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "analyze": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "checklist": { "status": "pending", "completed_at": null, "artifacts": [] },
-          "implement": { "status": "pending", "completed_at": null, "tasks_completed": 0, "tasks_total": 0, "artifacts": [] },
-          "verify": { "status": "pending", "completed_at": null, "artifacts": [] }
-        }
+        "phase": { "number": null, "name": null, "branch": null, "status": "not_started" },
+        "step": { "current": null, "index": 0, "status": "not_started" },
+        "progress": { "tasks_completed": 0, "tasks_total": 0, "percentage": 0 }
       } |
-      .last_updated = $ts
+      .health = {
+        "status": "reset",
+        "last_check": $ts,
+        "issues": []
+      } |
+      .actions = {
+        "available": [],
+        "pending": [],
+        "history": []
+      } |
+      .project.updated_at = $ts
     ' "$state_file" > "$temp_file"
 
     mv "$temp_file" "$state_file"
-    log_success "State reset (config preserved)"
+    log_success "State reset (project/config preserved)"
   fi
 }
 
@@ -310,50 +418,96 @@ cmd_validate() {
   fi
 
   local errors=0
+  local warnings=0
 
   # Check JSON validity
   if ! json_validate "$state_file"; then
     log_error "Invalid JSON syntax"
     ((errors++))
+    # Can't continue if JSON is invalid
+    if is_json_output; then
+      echo "{\"valid\": false, \"errors\": 1, \"warnings\": 0}"
+    fi
+    exit 1
   fi
 
-  # Check version
-  local version
-  version=$(json_get "$state_file" ".version" 2>/dev/null || echo "")
-  if [[ -z "$version" ]]; then
-    log_error "Missing version field"
+  print_status ok "Valid JSON syntax"
+
+  # Check schema version (v2.0 uses schema_version, older uses version)
+  local schema_version
+  schema_version=$(json_get "$state_file" ".schema_version" 2>/dev/null || echo "")
+  local legacy_version
+  legacy_version=$(json_get "$state_file" ".version" 2>/dev/null || echo "")
+
+  if [[ -n "$schema_version" ]]; then
+    if [[ "$schema_version" == "2.0" ]]; then
+      print_status ok "Schema version: 2.0"
+    else
+      log_warn "Unknown schema version: $schema_version (expected 2.0)"
+      ((warnings++))
+    fi
+  elif [[ -n "$legacy_version" ]]; then
+    log_warn "Legacy version field found: $legacy_version (run 'speckit state migrate')"
+    ((warnings++))
+  else
+    log_error "Missing schema_version field"
     ((errors++))
-  elif [[ "$version" != "2.0" ]] && [[ "$version" != "1.1" ]] && [[ "$version" != "1.0" ]]; then
-    log_warn "Unknown version: $version (expected 2.0)"
   fi
 
-  # Check required sections
-  local sections=("config" "project" "interview" "orchestration")
-  for section in "${sections[@]}"; do
+  # Check required sections (core)
+  local core_sections=("config" "project" "interview" "orchestration")
+  for section in "${core_sections[@]}"; do
     if ! json_has "$state_file" ".$section"; then
       log_error "Missing required section: $section"
       ((errors++))
+    else
+      print_status ok "Section: $section"
     fi
   done
+
+  # Check v2.0 sections (warnings only for backwards compatibility)
+  local v2_sections=("health" "actions" "ui")
+  for section in "${v2_sections[@]}"; do
+    if ! json_has "$state_file" ".$section"; then
+      log_warn "Missing v2.0 section: $section (run 'speckit state migrate')"
+      ((warnings++))
+    fi
+  done
+
+  # Check project ID (v2.0 requirement)
+  local project_id
+  project_id=$(json_get "$state_file" ".project.id" 2>/dev/null || echo "")
+  if [[ -z "$project_id" || "$project_id" == "null" ]]; then
+    log_warn "Missing project.id (run 'speckit state migrate')"
+    ((warnings++))
+  else
+    print_status ok "Project ID: ${project_id:0:8}..."
+  fi
 
   # Check config paths
   local config_keys=("roadmap_path" "memory_path" "specs_path")
   for key in "${config_keys[@]}"; do
     if ! json_has "$state_file" ".config.$key"; then
       log_warn "Missing config key: $key"
+      ((warnings++))
     fi
   done
 
+  echo ""
   if [[ $errors -eq 0 ]]; then
-    log_success "State file is valid"
+    if [[ $warnings -eq 0 ]]; then
+      log_success "State file is valid (v2.0)"
+    else
+      log_success "State file is valid with $warnings warning(s)"
+    fi
     if is_json_output; then
-      echo '{"valid": true, "errors": 0}'
+      echo "{\"valid\": true, \"errors\": 0, \"warnings\": $warnings}"
     fi
     exit 0
   else
-    log_error "Found $errors error(s)"
+    log_error "Found $errors error(s) and $warnings warning(s)"
     if is_json_output; then
-      echo "{\"valid\": false, \"errors\": $errors}"
+      echo "{\"valid\": false, \"errors\": $errors, \"warnings\": $warnings}"
     fi
     exit 1
   fi
@@ -366,12 +520,126 @@ cmd_path() {
   echo "$state_file"
 }
 
-# Migrate state file from v1.0 to v2.0
+# List/manage central registry
+cmd_registry() {
+  local subcommand="${1:-list}"
+
+  case "$subcommand" in
+    list|ls)
+      if [[ ! -f "$SPECKIT_REGISTRY" ]]; then
+        if is_json_output; then
+          echo '{"projects": {}}'
+        else
+          log_info "No projects registered yet"
+        fi
+        exit 0
+      fi
+
+      if is_json_output; then
+        cat "$SPECKIT_REGISTRY"
+      else
+        print_header "Registered Projects"
+        echo ""
+        jq -r '.projects | to_entries[] | "  \(.value.name) (\(.key | .[0:8])...)\n    Path: \(.value.path)\n    Registered: \(.value.registered_at)\n"' "$SPECKIT_REGISTRY" 2>/dev/null || echo "  (none)"
+      fi
+      ;;
+
+    sync)
+      # Update last_seen for current project
+      local state_file
+      state_file="$(get_state_file)"
+      if [[ ! -f "$state_file" ]]; then
+        log_error "No state file in current project"
+        exit 1
+      fi
+
+      local project_id
+      project_id=$(json_get "$state_file" ".project.id" 2>/dev/null || echo "")
+      if [[ -z "$project_id" || "$project_id" == "null" ]]; then
+        log_error "Project has no ID - run 'speckit state migrate'"
+        exit 1
+      fi
+
+      if [[ ! -f "$SPECKIT_REGISTRY" ]]; then
+        log_error "Registry not found"
+        exit 1
+      fi
+
+      local temp_file
+      temp_file=$(mktemp)
+      local timestamp
+      timestamp="$(iso_timestamp)"
+
+      jq --arg id "$project_id" --arg ts "$timestamp" \
+         '.projects[$id].last_seen = $ts' "$SPECKIT_REGISTRY" > "$temp_file"
+      mv "$temp_file" "$SPECKIT_REGISTRY"
+
+      log_success "Synced project $project_id"
+      ;;
+
+    clean)
+      # Remove stale projects (paths that no longer exist)
+      if [[ ! -f "$SPECKIT_REGISTRY" ]]; then
+        log_info "Registry is empty"
+        exit 0
+      fi
+
+      local temp_file
+      temp_file=$(mktemp)
+      local removed=0
+
+      # Keep only projects where path exists
+      jq -r '.projects | to_entries[] | "\(.key)|\(.value.path)"' "$SPECKIT_REGISTRY" | while IFS='|' read -r id path; do
+        if [[ ! -d "$path" ]]; then
+          log_info "Removing stale: $path"
+          ((removed++)) || true
+        fi
+      done
+
+      jq 'reduce (.projects | to_entries[]) as $e (.;
+        if ($e.value.path | . as $p | (["test", "-d", $p] | debug | false)) then .projects |= del(.[$e.key]) else . end
+      )' "$SPECKIT_REGISTRY" > "$temp_file" 2>/dev/null || cp "$SPECKIT_REGISTRY" "$temp_file"
+
+      # Simpler approach - check each path
+      local final_file
+      final_file=$(mktemp)
+      echo '{"projects": {}}' > "$final_file"
+
+      jq -r '.projects | to_entries[] | "\(.key)|\(.value | @json)"' "$SPECKIT_REGISTRY" 2>/dev/null | while IFS='|' read -r id value; do
+        local path
+        path=$(echo "$value" | jq -r '.path')
+        if [[ -d "$path" ]]; then
+          jq --arg id "$id" --argjson val "$value" '.projects[$id] = $val' "$final_file" > "${final_file}.tmp"
+          mv "${final_file}.tmp" "$final_file"
+        else
+          log_info "Removed stale: $path"
+        fi
+      done
+
+      mv "$final_file" "$SPECKIT_REGISTRY"
+      log_success "Registry cleaned"
+      ;;
+
+    path)
+      echo "$SPECKIT_REGISTRY"
+      ;;
+
+    *)
+      log_error "Unknown registry command: $subcommand"
+      echo "Usage: speckit state registry [list|sync|clean|path]"
+      exit 1
+      ;;
+  esac
+}
+
+# Migrate state file from v1.x to v2.0
 cmd_migrate() {
   local state_file
   state_file="$(get_state_file)"
   local specify_dir
   specify_dir="$(get_specify_dir)"
+  local repo_root
+  repo_root="$(get_repo_root)"
 
   if [[ ! -f "$state_file" ]]; then
     log_error "State file not found: $state_file"
@@ -386,37 +654,60 @@ cmd_migrate() {
     exit 1
   fi
 
-  # Check current version
-  local version
-  version=$(jq -r '.version // "unknown"' "$state_file" 2>/dev/null)
+  # Check current version (try schema_version first, then version)
+  local schema_version
+  schema_version=$(jq -r '.schema_version // ""' "$state_file" 2>/dev/null)
+  local legacy_version
+  legacy_version=$(jq -r '.version // "unknown"' "$state_file" 2>/dev/null)
 
-  if [[ "$version" == "2.0" ]]; then
+  if [[ "$schema_version" == "2.0" ]]; then
     log_success "State file is already v2.0 - no migration needed"
     exit 0
   fi
 
-  log_step "Migrating state file from v${version} to v2.0"
+  local source_version="${schema_version:-$legacy_version}"
+  log_step "Migrating state file from v${source_version} to v2.0"
 
   # Create backup
   local backup_dir="${specify_dir}/backup"
   ensure_dir "$backup_dir"
-  local backup_file="${backup_dir}/orchestration-state-${version}-$(date +%Y%m%d%H%M%S).json"
+  local backup_file="${backup_dir}/orchestration-state-${source_version}-$(date +%Y%m%d%H%M%S).json"
   cp "$state_file" "$backup_file"
   log_success "Created backup: $backup_file"
+
+  # Generate new project ID for this migration
+  local project_id
+  project_id="$(generate_uuid)"
+  local timestamp
+  timestamp="$(iso_timestamp)"
+  local project_name
+  project_name="$(basename "$repo_root")"
 
   # Detect format and extract data
   local temp_file
   temp_file=$(mktemp)
 
   # Check if it's v1.0 format (version == "1.0" or config paths in .project)
-  if [[ "$version" == "1.0" ]] || jq -e '.project.roadmap_path' "$state_file" >/dev/null 2>&1; then
-    log_info "Detected v1.0 format"
+  if [[ "$legacy_version" == "1.0" ]] || jq -e '.project.roadmap_path' "$state_file" >/dev/null 2>&1; then
+    log_info "Detected v1.0 format (config in .project)"
 
     # Migrate v1.0 to v2.0
-    jq --arg ts "$(iso_timestamp)" '
-      # Start with default structure
+    jq --arg ts "$timestamp" \
+       --arg id "$project_id" \
+       --arg path "$repo_root" \
+       --arg name "$project_name" '
       {
-        "version": "2.0",
+        "schema_version": "2.0",
+        "project": {
+          "id": $id,
+          "name": (.project.name // $name),
+          "path": $path,
+          "description": (.project.description // null),
+          "type": (.project.type // null),
+          "criticality": (.project.criticality // null),
+          "created_at": (.project.created_at // $ts),
+          "updated_at": $ts
+        },
         "config": {
           "roadmap_path": (.project.roadmap_path // "ROADMAP.md"),
           "memory_path": (.project.memory_path // ".specify/memory/"),
@@ -424,12 +715,6 @@ cmd_migrate() {
           "scripts_path": (.project.scripts_path // ".specify/scripts/"),
           "templates_path": (.project.templates_path // ".specify/templates/")
         },
-        "project": {
-          "name": (.project.name // null),
-          "description": (.project.description // null),
-          "type": (.project.type // null),
-          "criticality": (.project.criticality // null)
-        },
         "interview": (.interview // {
           "status": "not_started",
           "current_phase": 0,
@@ -439,38 +724,62 @@ cmd_migrate() {
           "started_at": null,
           "completed_at": null
         }),
-        "orchestration": (.orchestration // {
-          "phase_number": null,
-          "phase_name": null,
-          "branch": null,
-          "step": null,
-          "status": "not_started",
-          "steps": {
-            "specify": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "clarify": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "plan": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "tasks": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "analyze": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "checklist": { "status": "pending", "completed_at": null, "artifacts": [] },
-            "implement": { "status": "pending", "completed_at": null, "tasks_completed": 0, "tasks_total": 0, "artifacts": [] },
-            "verify": { "status": "pending", "completed_at": null, "artifacts": [] }
+        "orchestration": {
+          "phase": {
+            "number": (.orchestration.phase_number // null),
+            "name": (.orchestration.phase_name // null),
+            "branch": (.orchestration.branch // null),
+            "status": (.orchestration.status // "not_started")
+          },
+          "step": {
+            "current": (.orchestration.step // null),
+            "index": 0,
+            "status": "not_started"
+          },
+          "progress": {
+            "tasks_completed": 0,
+            "tasks_total": 0,
+            "percentage": 0
           }
-        }),
-        "history": (.history // []),
-        "last_updated": $ts,
-        "_migrated_from": "v1.0",
-        "_migrated_at": $ts
+        },
+        "health": {
+          "status": "migrated",
+          "last_check": $ts,
+          "issues": []
+        },
+        "actions": {
+          "available": [],
+          "pending": [],
+          "history": (.history // [])
+        },
+        "ui": {
+          "last_sync": null,
+          "notifications": []
+        },
+        "_migration": {
+          "from_version": "1.0",
+          "migrated_at": $ts
+        }
       }
     ' "$state_file" > "$temp_file"
 
   elif jq -e '.config' "$state_file" >/dev/null 2>&1; then
-    # Already has .config, but might be missing sections
+    # Has .config but missing v2.0 sections
     log_info "Detected partial v2.0 format - adding missing sections"
 
-    jq --arg ts "$(iso_timestamp)" '
-      # Merge with defaults for any missing sections
+    jq --arg ts "$timestamp" \
+       --arg id "$project_id" \
+       --arg path "$repo_root" \
+       --arg name "$project_name" '
       {
-        "version": "2.0",
+        "schema_version": "2.0",
+        "project": ((.project // {}) + {
+          "id": (.project.id // $id),
+          "path": (.project.path // $path),
+          "name": (.project.name // $name),
+          "created_at": (.project.created_at // $ts),
+          "updated_at": $ts
+        }),
         "config": (.config // {
           "roadmap_path": "ROADMAP.md",
           "memory_path": ".specify/memory/",
@@ -478,12 +787,6 @@ cmd_migrate() {
           "scripts_path": ".specify/scripts/",
           "templates_path": ".specify/templates/"
         }),
-        "project": (.project // {
-          "name": null,
-          "description": null,
-          "type": null,
-          "criticality": null
-        }),
         "interview": (.interview // {
           "status": "not_started",
           "current_phase": 0,
@@ -493,37 +796,74 @@ cmd_migrate() {
           "started_at": null,
           "completed_at": null
         }),
-        "orchestration": (.orchestration // {
-          "phase_number": null,
-          "phase_name": null,
-          "branch": null,
-          "step": null,
-          "status": "not_started",
-          "steps": {}
+        "orchestration": (
+          if .orchestration.phase then .orchestration
+          else {
+            "phase": {
+              "number": (.orchestration.phase_number // null),
+              "name": (.orchestration.phase_name // null),
+              "branch": (.orchestration.branch // null),
+              "status": (.orchestration.status // "not_started")
+            },
+            "step": {
+              "current": (.orchestration.step // null),
+              "index": 0,
+              "status": "not_started"
+            },
+            "progress": {
+              "tasks_completed": 0,
+              "tasks_total": 0,
+              "percentage": 0
+            }
+          }
+          end
+        ),
+        "health": (.health // {
+          "status": "migrated",
+          "last_check": $ts,
+          "issues": []
         }),
-        "history": (.history // []),
-        "last_updated": $ts
+        "actions": (.actions // {
+          "available": [],
+          "pending": [],
+          "history": (.history // [])
+        }),
+        "ui": (.ui // {
+          "last_sync": null,
+          "notifications": []
+        }),
+        "_migration": {
+          "from_version": (.version // "unknown"),
+          "migrated_at": $ts
+        }
       }
     ' "$state_file" > "$temp_file"
 
   else
     log_warn "Unknown state format - creating fresh v2.0 with preserved data"
 
-    jq --arg ts "$(iso_timestamp)" '
+    jq --arg ts "$timestamp" \
+       --arg id "$project_id" \
+       --arg path "$repo_root" \
+       --arg name "$project_name" '
       {
-        "version": "2.0",
+        "schema_version": "2.0",
+        "project": {
+          "id": $id,
+          "name": $name,
+          "path": $path,
+          "description": null,
+          "type": null,
+          "criticality": null,
+          "created_at": $ts,
+          "updated_at": $ts
+        },
         "config": {
           "roadmap_path": "ROADMAP.md",
           "memory_path": ".specify/memory/",
           "specs_path": "specs/",
           "scripts_path": ".specify/scripts/",
           "templates_path": ".specify/templates/"
-        },
-        "project": {
-          "name": null,
-          "description": null,
-          "type": null,
-          "criticality": null
         },
         "interview": {
           "status": "not_started",
@@ -535,16 +875,15 @@ cmd_migrate() {
           "completed_at": null
         },
         "orchestration": {
-          "phase_number": null,
-          "phase_name": null,
-          "branch": null,
-          "step": null,
-          "status": "not_started",
-          "steps": {}
+          "phase": { "number": null, "name": null, "branch": null, "status": "not_started" },
+          "step": { "current": null, "index": 0, "status": "not_started" },
+          "progress": { "tasks_completed": 0, "tasks_total": 0, "percentage": 0 }
         },
-        "history": [],
-        "last_updated": $ts,
-        "_original_data": .
+        "health": { "status": "migrated", "last_check": $ts, "issues": [] },
+        "actions": { "available": [], "pending": [], "history": [] },
+        "ui": { "last_sync": null, "notifications": [] },
+        "_migration": { "from_version": "unknown", "migrated_at": $ts },
+        "_preserved_data": .
       }
     ' "$state_file" > "$temp_file"
   fi
@@ -560,12 +899,20 @@ cmd_migrate() {
   # Write the migrated file
   mv "$temp_file" "$state_file"
 
+  # Register project in central registry
+  local final_id
+  final_id=$(jq -r '.project.id' "$state_file")
+  local final_name
+  final_name=$(jq -r '.project.name' "$state_file")
+  register_project "$final_id" "$repo_root" "$final_name"
+
   log_success "Migration complete!"
-  log_info "Migrated: v${version} → v2.0"
+  log_info "Migrated: v${source_version} → v2.0"
+  log_info "Project ID: $final_id"
   log_info "Backup: $backup_file"
 
   if is_json_output; then
-    echo "{\"migrated\": true, \"from\": \"$version\", \"to\": \"2.0\", \"backup\": \"$backup_file\"}"
+    echo "{\"migrated\": true, \"from\": \"$source_version\", \"to\": \"2.0\", \"project_id\": \"$final_id\", \"backup\": \"$backup_file\"}"
   fi
 }
 
@@ -607,6 +954,9 @@ main() {
       ;;
     migrate)
       cmd_migrate
+      ;;
+    registry)
+      cmd_registry "${1:-list}"
       ;;
     path)
       cmd_path
