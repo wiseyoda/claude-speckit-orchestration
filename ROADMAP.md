@@ -37,6 +37,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 0040 | Integration Options | ✅ Complete | Existing docs imported successfully |
 | 0041 | Code Review Findings | ✅ Complete | All review findings addressed |
 | 0042 | Code Review 2026-01-11 | 🔄 Not Started | 18 findings addressed |
+| 0050 | UX Simplification | ⬜ Not Started | Single entry point, clean codebase, unified memory |
 | 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
@@ -262,6 +263,68 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
+### 0050 - UX Simplification
+
+**Goal**: Reduce cognitive load and streamline the SpecKit user experience by consolidating entry points, removing orphaned code, and unifying similar commands.
+
+**Source PDRs**:
+- `pdr-ux-simplification.md` - SpecKit UX Simplification
+
+**Scope**:
+- Delete orphaned scripts from `.specify/scripts/bash/`
+- Remove `/speckit.issue` slash command (CLI works directly)
+- Update documentation to recommend `/speckit.start` as primary entry
+- Consolidate `/speckit.memory` and `/speckit.memory-init` into unified command
+- Simplify state tracking to derive step completion from filesystem artifacts
+- Update all handoffs to point to `/speckit.start`
+
+**User Stories**:
+1. Single Entry Point: Users always start with `/speckit.start` and get routed correctly
+2. Direct CLI for Simple Operations: Run `speckit issue create` directly without slash wrapper
+3. Unified Memory Management: One command (`/speckit.memory`) with clear subcommands
+4. Clean Codebase: Only active, used code in the repository
+5. Filesystem-Derived State: SpecKit figures out where you are from files
+
+**Deliverables**:
+
+*Code Cleanup*:
+- Delete `.specify/scripts/bash/{setup-plan.sh, update-agent-context.sh, create-new-feature.sh, common.sh}`
+- Delete `commands/speckit.issue.md`
+- Update `commands/speckit.memory.md` to handle generate subcommand
+- Deprecate `commands/speckit.memory-init.md` with pointer to `/speckit.memory generate`
+- Update `scripts/bash/speckit-status.sh` to derive state from filesystem
+
+*Documentation (comprehensive)*:
+- Update `README.md` - Recommend `/speckit.start` as THE entry point
+- Update `CLAUDE.md` - CLI reference, remove /speckit.issue
+- Update `docs/` folder (8 files): cli-reference, slash-commands, integration-guide, project-structure, configuration, troubleshooting, templates, COMMAND-AUDIT
+- Update `bin/speckit` help text to recommend `/speckit.start`
+- Update slash command handoffs (10 commands) to point to `/speckit.start`
+
+**Constraints** (from PDR):
+- Must preserve all existing functionality
+- Must maintain backward compatibility
+- Must keep edge case handling already implemented
+- Must NOT remove PDR system
+- Must NOT break existing state files
+
+**Non-Goals** (from PDR):
+- Adding new features (pure simplification)
+- Performance optimization
+- Web UI changes
+- Major architectural rewrites
+
+**Verification Gate**:
+- All orphaned scripts deleted (0 scripts in `.specify/scripts/bash/` that duplicate main scripts)
+- `/speckit.issue` slash command removed, CLI documented
+- `/speckit.memory generate` works (replaces memory-init)
+- Documentation recommends `/speckit.start` as primary entry
+- `speckit status --json` derives step completion from artifacts
+
+**Estimated Complexity**: Medium (5 stories, mostly deletions and documentation)
+
+---
+
 ## Milestone 1: Extended Features
 
 ### 1010 - Web UI Dashboard
@@ -386,3 +449,4 @@ Branch names remain unchanged (branches use short names, not phase numbers).
 | 2026-01-11 | Added Phase 0041 (Code Review Findings) - 36 findings from /speckit.review |
 | 2026-01-11 | Added Phase 0042 (Code Review 2026-01-11) - 18 findings from /speckit.review |
 | 2026-01-11 | Added modular ROADMAP: speckit phase, speckit issue, speckit roadmap renumber, /speckit.merge auto-archive |
+| 2026-01-11 | Added Phase 0050 (UX Simplification) from pdr-ux-simplification.md |
