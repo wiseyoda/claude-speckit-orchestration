@@ -35,7 +35,6 @@ This allows inserting urgent work without renumbering existing phases.
 | 0020 | Onboarding Polish | ✅ Not Started | New user can set up without confusion |
 | 0030 | Test Suite Completion | ✅ Not Started | All tests pass on macOS and Linux |
 | 0040 | Integration Options | ✅ Not Started | Existing docs imported successfully |
-| 0050 | Story-Based Orchestration | ⬜ Not Started | **USER GATE**: Stories execute independently |
 | 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
@@ -188,33 +187,6 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
-### 0050 - Story-Based Orchestration
-
-**Goal**: Execute user stories independently with MVP checkpoints.
-
-**Scope**:
-- Update orchestrate.md to support story-based flow
-- Add `speckit tasks next-story` command
-- Parallel story execution where dependencies allow
-- MVP checkpoints between stories
-- Story reordering within phases
-
-**Deliverables**:
-- Updated `commands/speckit.orchestrate.md`
-- Updated `scripts/bash/speckit-tasks.sh`
-- Story dependency tracking
-
-**Verification Gate**: **USER VERIFICATION REQUIRED**
-- User can execute stories independently
-- Skipping stories doesn't break workflow
-- MVP is validated at each story boundary
-
-**Estimated Complexity**: High
-
----
-
----
-
 ## Milestone 1: Extended Features
 
 ### 1010 - Web UI Dashboard
@@ -248,7 +220,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 | Item | Description | Priority | Notes |
 |------|-------------|----------|-------|
-| Test item | Added 2026-01-10 | - | |
+| Story-Based Orchestration | Execute user stories independently with MVP checkpoints | Medium | Deferred from Phase 0050 - current workflow works well |
 | Parallel phase execution | Run independent phases concurrently | Low | Requires dependency graph |
 | Team collaboration | Multi-user roadmap editing, conflict resolution | Low | Future vision |
 
@@ -258,8 +230,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 | Gate | Phase | What User Verifies |
 |------|-------|-------------------|
-| **Gate 1** | 0050 | Stories execute independently, MVPs are validated |
-| **Gate 2** | 1010 | Dashboard shows projects, real-time updates work |
+| **Gate 1** | 1010 | Dashboard shows projects, real-time updates work |
 
 ---
 
