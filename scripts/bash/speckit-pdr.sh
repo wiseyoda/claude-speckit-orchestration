@@ -47,14 +47,18 @@ USAGE:
 
 COMMANDS:
     list                List all PDRs with status
+    list --all          Include processed PDRs (prefixed with _)
     status              Show PDR summary (counts by status)
     show <file>         Show PDR details (title, status, stories)
     validate <file>     Validate PDR structure
+    mark <file>         Mark PDR as processed (adds _ prefix)
+    unmark <file>       Unmark PDR (removes _ prefix)
     path                Show PDR directory path
     init                Create PDR directory if missing
 
 OPTIONS:
     --json              Output in JSON format
+    --all               Include processed PDRs in list
     -h, --help          Show this help
 
 PDR STATUS VALUES:
@@ -63,11 +67,17 @@ PDR STATUS VALUES:
     Approved            Ready for phase planning
     Implemented         Shipped (archive candidate)
 
+PDR FILE NAMING:
+    pdr-*.md            Active PDR (not yet turned into phase)
+    _pdr-*.md           Processed PDR (already turned into phase)
+
 EXAMPLES:
     speckit pdr list
+    speckit pdr list --all
     speckit pdr status
     speckit pdr show pdr-offline-mode.md
     speckit pdr validate pdr-offline-mode.md
+    speckit pdr mark pdr-offline-mode.md
     speckit pdr path
 EOF
 }
@@ -213,23 +223,43 @@ has_section() {
 # =============================================================================
 
 cmd_list() {
+  local show_all="${1:-false}"
   ensure_pdr_dir
   local pdr_path
   pdr_path="$(get_pdr_path)"
 
-  # Find all PDR files (exclude README)
+  # Find all PDR files (exclude README, optionally exclude processed)
   local pdr_files=()
+  local processed_files=()
   while IFS= read -r -d '' file; do
-    [[ "$(basename "$file")" == "README.md" ]] && continue
-    pdr_files+=("$file")
+    local basename
+    basename="$(basename "$file")"
+    [[ "$basename" == "README.md" ]] && continue
+
+    # Check if processed (starts with _)
+    if [[ "$basename" == _* ]]; then
+      processed_files+=("$file")
+    else
+      pdr_files+=("$file")
+    fi
   done < <(find "$pdr_path" -maxdepth 1 -name "*.md" -print0 2>/dev/null | sort -z)
+
+  # If showing all, include processed files
+  if [[ "$show_all" == "true" ]]; then
+    pdr_files+=("${processed_files[@]}")
+  fi
 
   if [[ ${#pdr_files[@]} -eq 0 ]]; then
     if is_json_output; then
-      echo '{"pdrs": [], "count": 0}'
+      echo "{\"pdrs\": [], \"count\": 0, \"processed_count\": ${#processed_files[@]}}"
     else
-      log_info "No PDRs found in $PDR_DIR"
-      log_info "Create one with: cp templates/pdr-template.md $PDR_DIR/pdr-my-feature.md"
+      if [[ ${#processed_files[@]} -gt 0 ]]; then
+        log_info "No active PDRs found (${#processed_files[@]} processed)"
+        log_info "Use 'speckit pdr list --all' to see processed PDRs"
+      else
+        log_info "No PDRs found in $PDR_DIR"
+        log_info "Create one with: cp templates/pdr-template.md $PDR_DIR/pdr-my-feature.md"
+      fi
     fi
     exit 0
   fi
@@ -263,40 +293,61 @@ cmd_list() {
     esac
   done
 
+  # Calculate processed count (not included in current list unless --all)
+  local processed_not_shown=0
+  if [[ "$show_all" != "true" ]]; then
+    processed_not_shown=${#processed_files[@]}
+  fi
+
   if is_json_output; then
     local json_pdrs="[]"
     for pdr_data in "${pdrs[@]}"; do
       IFS='|' read -r filename title status priority stories <<< "$pdr_data"
-      json_pdrs=$(echo "$json_pdrs" | jq --arg f "$filename" --arg t "$title" --arg s "$status" --arg p "$priority" --arg c "$stories" \
-        '. + [{"file": $f, "title": $t, "status": $s, "priority": $p, "stories": ($c | tonumber)}]')
+      local is_processed="false"
+      [[ "$filename" == _* ]] && is_processed="true"
+      json_pdrs=$(echo "$json_pdrs" | jq --arg f "$filename" --arg t "$title" --arg s "$status" --arg p "$priority" --arg c "$stories" --arg proc "$is_processed" \
+        '. + [{"file": $f, "title": $t, "status": $s, "priority": $p, "stories": ($c | tonumber), "processed": ($proc == "true")}]')
     done
-    echo "$json_pdrs" | jq "{pdrs: ., count: (. | length), by_status: {draft: $draft_count, ready: $ready_count, approved: $approved_count, implemented: $implemented_count}}"
+    echo "$json_pdrs" | jq "{pdrs: ., count: (. | length), processed_hidden: $processed_not_shown, by_status: {draft: $draft_count, ready: $ready_count, approved: $approved_count, implemented: $implemented_count}}"
   else
     # Three-Line Rule: Summary first
-    echo -e "${BLUE}INFO${RESET}: ${#pdrs[@]} PDR(s) found"
+    local summary="${#pdrs[@]} PDR(s)"
+    if [[ $processed_not_shown -gt 0 ]]; then
+      summary="$summary ($processed_not_shown processed, use --all to show)"
+    fi
+    echo -e "${BLUE}INFO${RESET}: $summary"
     echo ""
 
     # PDR list with status indicators
     for pdr_data in "${pdrs[@]}"; do
       IFS='|' read -r filename title status priority stories <<< "$pdr_data"
 
-      case "$status" in
-        Draft)
-          print_status pending "$filename - $title [$priority] ($stories stories)"
-          ;;
-        Ready)
-          print_status progress "$filename - $title [$priority] ($stories stories)"
-          ;;
-        Approved)
-          print_status ok "$filename - $title [$priority] ($stories stories)"
-          ;;
-        Implemented)
-          echo -e "  ${DIM}✓ $filename - $title (implemented)${RESET}"
-          ;;
-        *)
-          echo "  ? $filename - $title [$status]"
-          ;;
-      esac
+      # Check if this is a processed PDR (starts with _)
+      local is_processed=false
+      [[ "$filename" == _* ]] && is_processed=true
+
+      if [[ "$is_processed" == "true" ]]; then
+        # Processed PDRs shown dimmed with strikethrough indicator
+        echo -e "  ${DIM}~ $filename - $title (processed → phase)${RESET}"
+      else
+        case "$status" in
+          Draft)
+            print_status pending "$filename - $title [$priority] ($stories stories)"
+            ;;
+          Ready)
+            print_status progress "$filename - $title [$priority] ($stories stories)"
+            ;;
+          Approved)
+            print_status ok "$filename - $title [$priority] ($stories stories)"
+            ;;
+          Implemented)
+            echo -e "  ${DIM}✓ $filename - $title (implemented)${RESET}"
+            ;;
+          *)
+            echo "  ? $filename - $title [$status]"
+            ;;
+        esac
+      fi
     done
   fi
 }
@@ -523,6 +574,86 @@ See templates/pdr-template.md for the template.
   log_success "Created PDR directory: $pdr_path"
 }
 
+cmd_mark() {
+  local file="$1"
+
+  if [[ -z "$file" ]]; then
+    log_error "File required"
+    echo "Usage: speckit pdr mark <file>"
+    exit 1
+  fi
+
+  local pdr_file
+  pdr_file=$(resolve_pdr_file "$file")
+
+  if [[ ! -f "$pdr_file" ]]; then
+    log_error "PDR not found: $pdr_file"
+    exit 1
+  fi
+
+  local dir
+  dir=$(dirname "$pdr_file")
+  local basename
+  basename=$(basename "$pdr_file")
+
+  # Check if already marked
+  if [[ "$basename" == _* ]]; then
+    log_info "PDR already marked as processed: $basename"
+    exit 0
+  fi
+
+  local new_name="_${basename}"
+  local new_path="${dir}/${new_name}"
+
+  mv "$pdr_file" "$new_path"
+
+  if is_json_output; then
+    jq -n --arg old "$basename" --arg new "$new_name" '{"marked": true, "old": $old, "new": $new}'
+  else
+    log_success "Marked as processed: $basename → $new_name"
+  fi
+}
+
+cmd_unmark() {
+  local file="$1"
+
+  if [[ -z "$file" ]]; then
+    log_error "File required"
+    echo "Usage: speckit pdr unmark <file>"
+    exit 1
+  fi
+
+  local pdr_file
+  pdr_file=$(resolve_pdr_file "$file")
+
+  if [[ ! -f "$pdr_file" ]]; then
+    log_error "PDR not found: $pdr_file"
+    exit 1
+  fi
+
+  local dir
+  dir=$(dirname "$pdr_file")
+  local basename
+  basename=$(basename "$pdr_file")
+
+  # Check if not marked
+  if [[ "$basename" != _* ]]; then
+    log_info "PDR is not marked as processed: $basename"
+    exit 0
+  fi
+
+  local new_name="${basename#_}"
+  local new_path="${dir}/${new_name}"
+
+  mv "$pdr_file" "$new_path"
+
+  if is_json_output; then
+    jq -n --arg old "$basename" --arg new "$new_name" '{"unmarked": true, "old": $old, "new": $new}'
+  else
+    log_success "Unmarked: $basename → $new_name"
+  fi
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -541,7 +672,11 @@ main() {
 
   case "$command" in
     list|ls)
-      cmd_list
+      local show_all="false"
+      for arg in "$@"; do
+        [[ "$arg" == "--all" || "$arg" == "-a" ]] && show_all="true"
+      done
+      cmd_list "$show_all"
       ;;
     status|st)
       cmd_status
@@ -551,6 +686,12 @@ main() {
       ;;
     validate)
       cmd_validate "${1:-}"
+      ;;
+    mark)
+      cmd_mark "${1:-}"
+      ;;
+    unmark)
+      cmd_unmark "${1:-}"
       ;;
     path)
       cmd_path

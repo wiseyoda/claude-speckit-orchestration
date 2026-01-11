@@ -210,13 +210,24 @@ Create new ROADMAP.md with:
 
 Use template at `templates/roadmap-template.md` as base.
 
-### Step 7: Update PDR Status
+### Step 7: Mark PDRs as Processed
 
-After adding to ROADMAP, mark PDRs as used:
+After adding to ROADMAP, mark each PDR as processed using the CLI:
 
-Edit each PDR file:
+```bash
+# For each PDR that was turned into a phase
+speckit pdr mark pdr-<name>.md
+```
+
+This renames the file with a `_` prefix (e.g., `pdr-offline-mode.md` → `_pdr-offline-mode.md`) to indicate it has been processed into a phase.
+
+**Why?** This makes it easy to see which PDRs are still waiting to become phases:
+- `speckit pdr list` shows only unprocessed PDRs
+- `speckit pdr list --all` shows all PDRs including processed ones
+
+Optionally, also update the PDR file status:
 - Change `**Status**: Approved` → `**Status**: Implemented`
-- Or add note: `**Phase**: NNNN - [Phase Name]`
+- Add note: `**Phase**: NNNN - [Phase Name]`
 
 ## Output Format
 
@@ -234,6 +245,10 @@ Created N phase(s) from M PDR(s):
          Source: pdr-sync-status.md
          Stories: 2 | Complexity: Low
          Gate: Automated
+
+PDRs marked as processed:
+  speckit pdr mark pdr-offline-mode.md  ✓
+  speckit pdr mark pdr-sync-status.md   ✓
 
 Next steps:
   1. Review ROADMAP.md for accuracy
@@ -298,6 +313,7 @@ This command uses:
 speckit pdr list --json
 speckit pdr show <file>
 speckit pdr validate <file>
+speckit pdr mark <file>      # Mark PDR as processed after phase creation
 
 # Roadmap operations
 speckit roadmap status --json
