@@ -118,14 +118,24 @@ resolve_pdr_file() {
 }
 
 # Extract field from PDR frontmatter or body
+# Supports both "**Field**: value" and "## Field\n[value]" formats
 extract_pdr_field() {
   local file="$1"
   local field="$2"
   local default="${3:-}"
 
-  # Try frontmatter first (YAML-like)
+  # Try inline format first: **Field**: value
   local value
-  value=$(grep -E "^\*\*${field}\*\*:" "$file" 2>/dev/null | head -1 | sed "s/.*\*\*${field}\*\*:[[:space:]]*//" | tr -d '`')
+  value=$(grep -E "^\*\*${field}\*\*:" "$file" 2>/dev/null | head -1 | sed "s/.*\*\*${field}\*\*:[[:space:]]*//" | tr -d '`' || true)
+
+  if [[ -n "$value" ]]; then
+    echo "$value"
+    return
+  fi
+
+  # Try section format: ## Field followed by content on next line
+  # (used by story-sprout style PDRs)
+  value=$(awk "/^## ${field}$/{getline; if(/^\[/) print; else print}" "$file" 2>/dev/null | head -1 | tr -d '[]' || true)
 
   if [[ -n "$value" ]]; then
     echo "$value"
@@ -158,15 +168,37 @@ get_pdr_priority() {
 }
 
 # Extract PDR title from file (first H1)
+# Supports both "# PDR: Title" and "# PDR-NNN: Title" formats
 get_pdr_title() {
   local file="$1"
-  grep -E "^# PDR:" "$file" 2>/dev/null | head -1 | sed 's/^# PDR:[[:space:]]*//'
+  local title
+
+  # Try "# PDR: Title" format first
+  title=$(grep -E "^# PDR:" "$file" 2>/dev/null | head -1 | sed 's/^# PDR:[[:space:]]*//' || true)
+
+  # If empty, try "# PDR-NNN: Title" format
+  if [[ -z "$title" ]]; then
+    title=$(grep -E "^# PDR-[0-9]+:" "$file" 2>/dev/null | head -1 | sed 's/^# PDR-[0-9]*:[[:space:]]*//' || true)
+  fi
+
+  echo "$title"
 }
 
 # Count user stories in PDR
+# Supports "### Story N" and "### Phase N:" formats
 count_user_stories() {
   local file="$1"
-  grep -cE "^### Story [0-9]" "$file" 2>/dev/null || echo "0"
+  local count
+
+  # Try "### Story N" format
+  count=$(grep -cE "^### Story [0-9]" "$file" 2>/dev/null || true)
+
+  # If zero, try "### Phase N:" format (story-sprout style)
+  if [[ -z "$count" || "$count" -eq 0 ]]; then
+    count=$(grep -cE "^### Phase [0-9]+:" "$file" 2>/dev/null || true)
+  fi
+
+  echo "${count:-0}"
 }
 
 # Check if section exists in PDR
