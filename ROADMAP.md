@@ -18,9 +18,9 @@ Phases use **ABBC** format:
 - **C** = Hotfix (0-9) - Insert slot (0 = main phase, 1-9 = hotfixes/inserts)
 
 **Examples**:
-- `2010` = Milestone 2, Phase 01, no hotfix
-- `2021` = Hotfix 1 inserted after Phase 02
-- `2022` = Hotfix 2 inserted after Phase 02
+- `0010` = Milestone 0, Phase 01, no hotfix
+- `0021` = Hotfix 1 inserted after Phase 02
+- `1010` = Milestone 1, Phase 01, no hotfix
 
 This allows inserting urgent work without renumbering existing phases.
 
@@ -30,20 +30,20 @@ This allows inserting urgent work without renumbering existing phases.
 
 | Phase | Name | Status | Verification Gate |
 |-------|------|--------|-------------------|
-| 2010 | Roadmap Flexibility | ⬜ Not Started | Insert/defer commands work |
-| 2020 | Onboarding Polish | ⬜ Not Started | New user can set up without confusion |
-| 2030 | Test Suite Completion | ⬜ Not Started | All tests pass on macOS and Linux |
-| 2040 | Integration Options | ⬜ Not Started | Existing docs imported successfully |
-| 2050 | Story-Based Orchestration | ⬜ Not Started | **USER GATE**: Stories execute independently |
-| 2060 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
+| 0010 | Roadmap Flexibility | ⬜ Not Started | Insert/defer commands work |
+| 0020 | Onboarding Polish | ⬜ Not Started | New user can set up without confusion |
+| 0030 | Test Suite Completion | ⬜ Not Started | All tests pass on macOS and Linux |
+| 0040 | Integration Options | ⬜ Not Started | Existing docs imported successfully |
+| 0050 | Story-Based Orchestration | ⬜ Not Started | **USER GATE**: Stories execute independently |
+| 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
 
 ---
 
-## Milestone 2: v2.x Development
+## Milestone 0: Foundation & Polish
 
-### 2010 - Roadmap Flexibility
+### 0010 - Roadmap Flexibility
 
 **Goal**: Enable mid-roadmap changes without painful renumbering.
 
@@ -67,15 +67,15 @@ This allows inserting urgent work without renumbering existing phases.
 - Updated schema documentation
 
 **Verification Gate**:
-- `speckit roadmap insert --after 2020 "Urgent Fix"` creates phase 2021
-- `speckit roadmap defer 2040` moves phase to Backlog
-- Migration converts 001→2010, 002→2020 correctly
+- `speckit roadmap insert --after 0020 "Urgent Fix"` creates phase 0021
+- `speckit roadmap defer 0040` moves phase to Backlog
+- Migration converts 001→0010, 002→0020 correctly
 
 **Estimated Complexity**: Medium
 
 ---
 
-### 2020 - Onboarding Polish
+### 0020 - Onboarding Polish
 
 **Goal**: Make the first-run experience smooth and project-agnostic.
 
@@ -106,7 +106,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
-### 2030 - Test Suite Completion
+### 0030 - Test Suite Completion
 
 **Goal**: All CLI scripts have passing tests on macOS and Linux.
 
@@ -134,7 +134,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
-### 2040 - Integration Options
+### 0040 - Integration Options
 
 **Goal**: Support projects with existing documentation.
 
@@ -157,7 +157,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
-### 2050 - Story-Based Orchestration
+### 0050 - Story-Based Orchestration
 
 **Goal**: Execute user stories independently with MVP checkpoints.
 
@@ -182,7 +182,11 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
-### 2060 - Web UI Dashboard
+---
+
+## Milestone 1: Extended Features
+
+### 1010 - Web UI Dashboard
 
 **Goal**: Visual dashboard for multi-project monitoring.
 
@@ -222,8 +226,8 @@ This allows inserting urgent work without renumbering existing phases.
 
 | Gate | Phase | What User Verifies |
 |------|-------|-------------------|
-| **Gate 1** | 2050 | Stories execute independently, MVPs are validated |
-| **Gate 2** | 2060 | Dashboard shows projects, real-time updates work |
+| **Gate 1** | 0050 | Stories execute independently, MVPs are validated |
+| **Gate 2** | 1010 | Dashboard shows projects, real-time updates work |
 
 ---
 
@@ -256,13 +260,13 @@ Or manually:
 
 ### Inserting Urgent Work
 ```bash
-speckit roadmap insert --after 2020 "Urgent Bug Fixes"
-# Creates phase 2021
+speckit roadmap insert --after 0020 "Urgent Bug Fixes"
+# Creates phase 0021
 ```
 
 ### Deferring Work
 ```bash
-speckit roadmap defer 2040 --reason "Deprioritized after user testing"
+speckit roadmap defer 0040 --reason "Deprioritized after user testing"
 # Moves to Backlog section
 ```
 
@@ -281,10 +285,10 @@ Existing roadmaps with 001/002/003 numbering should be migrated:
 speckit migrate roadmap
 ```
 
-Conversion: `0AB` → `M0A0` where M is the current milestone (default: 2)
-- 001 → 2010
-- 002 → 2020
-- 003 → 2030
+Conversion: `0AB` → `00A0` (milestone 0 by default)
+- 001 → 0010
+- 002 → 0020
+- 003 → 0030
 
 Branch names remain unchanged (branches use short names, not phase numbers).
 
@@ -295,4 +299,4 @@ Branch names remain unchanged (branches use short names, not phase numbers).
 | Date | Change |
 |------|--------|
 | 2026-01-10 | Initial roadmap (v2.0, 001-005 numbering) |
-| 2026-01-10 | Migrated to v2.1 ABBC numbering, added Phase 2010 (Roadmap Flexibility) |
+| 2026-01-10 | Migrated to v2.1 ABBC numbering, added Phase 0010 (Roadmap Flexibility) |
