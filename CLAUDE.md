@@ -74,8 +74,11 @@ templates/                  → Document templates
 - `.specify/memory/constitution.md` - Project principles
 - `.specify/memory/tech-stack.md` - Approved technologies
 - `scripts/bash/lib/common.sh` - Source this first; provides `log_*`, `get_*`, `validate_*`
+- `scripts/bash/speckit-gate.sh` - Validation gate enforcement
+- `scripts/bash/speckit-lessons.sh` - Lessons learned management
 - `commands/speckit.orchestrate.md` - Main workflow command
 - `commands/speckit.init.md` - Unified interview (replaces 12 init-*.md files)
+- `commands/speckit.review.md` - Systematic code review workflow
 
 ## v2.0 Key Changes
 

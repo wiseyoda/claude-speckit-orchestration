@@ -22,6 +22,7 @@ Arguments:
 - Empty: Run full interactive review with category-by-category approval
 - `--dry-run`: Generate findings without creating phase (preview mode)
 - `--categories <list>`: Review only specified categories (comma-separated: BP,RF,HD,MF,OC,OE,OD)
+- `--fix`: Auto-approve all findings with effort ≤4, defer effort=5 items, then auto-run `/speckit.orchestrate`
 
 You **MUST** consider the user input before proceeding (if not empty).
 
@@ -87,7 +88,9 @@ mkdir -p .specify/reviews
 
 **0c. Generate review ID:**
 
-Use format: `review-YYYYMMDD` (e.g., `review-20260111`)
+Use format: `review-YYYYMMDD-HHMMSS` (e.g., `review-20260111-143025`)
+
+This timestamp format allows multiple reviews per day while maintaining chronological sorting.
 
 ---
 
@@ -161,7 +164,48 @@ findings = {
 
 ---
 
-### Step 4: Interactive Category Approval
+### Step 4: Category Approval
+
+**If `--fix` is set, use AUTO-APPROVE mode (Step 4-AUTO below). Otherwise, use INTERACTIVE mode.**
+
+#### Step 4-AUTO: Auto-Approve Mode (--fix)
+
+When `--fix` flag is set, skip interactive prompts:
+
+**4-AUTO-a. Auto-triage by effort:**
+
+```text
+For each finding:
+  if effort <= 4:
+    approved.append(finding)  # Approve anything under "major" effort
+  else:
+    deferred.append(finding)  # Defer "major" (>3 days) tasks
+```
+
+**4-AUTO-b. Display auto-decisions:**
+
+```text
+============================================
+Auto-Approve Mode (--fix)
+============================================
+
+Approved (effort ≤4): 35 findings
+Deferred (effort=5):  7 findings
+
+Approved by category:
+  BP: 5, RF: 8, HD: 6, MF: 10, OC: 3, OE: 2, OD: 1
+
+Deferred (major effort):
+  RF003: Large-scale refactoring of state machine (effort: 5)
+  MF005: Complete CLI command parity (effort: 5)
+  ...
+```
+
+**4-AUTO-c. Skip to Step 5** (no user interaction needed).
+
+---
+
+#### Step 4-INTERACTIVE: Interactive Category Approval
 
 For each category with findings, present to user using `AskUserQuestion`:
 
@@ -209,7 +253,7 @@ deferred = ["BP002", "BP004", "BP005", ...]
 
 **5a. Create review file:**
 
-Output path: `.specify/reviews/review-YYYYMMDD.md`
+Output path: `.specify/reviews/review-YYYYMMDD-HHMMSS.md`
 
 **5b. Populate sections:**
 
@@ -248,7 +292,7 @@ Read ROADMAP.md to find the last in-progress or completed phase. Calculate hotfi
 Add new phase section after the base phase (e.g., 0041 after 0040):
 
 ```markdown
-### Phase [NNNN] - Code Review [DATE]
+### Phase [NNNN] - Code Review [TIMESTAMP]
 
 **Goal**: Address code quality findings from systematic review
 
@@ -256,7 +300,7 @@ Add new phase section after the base phase (e.g., 0041 after 0040):
 
 **Scope**:
 - [Count] approved findings across [N] categories
-- See `.specify/reviews/review-[DATE].md` for details
+- See `.specify/reviews/review-[TIMESTAMP].md` for details
 
 **Verification Gate**:
 - All approved findings addressed
@@ -275,12 +319,12 @@ Add row to the phase overview table with status "Not Started".
 For each deferred finding, add to ROADMAP.md backlog section:
 
 ```markdown
-| [ID] [Category]: [Brief finding] | [Recommendation] | Medium | Deferred from review [DATE] |
+| [ID] [Category]: [Brief finding] | [Recommendation] | Medium | Deferred from review [TIMESTAMP] |
 ```
 
 Example:
 ```markdown
-| [BP002] Best Practices: Missing function docs | Add JSDoc comments | Low | Deferred from review 2026-01-11 |
+| [BP002] Best Practices: Missing function docs | Add JSDoc comments | Low | Deferred from review 20260111-143025 |
 ```
 
 ---
@@ -294,8 +338,8 @@ Display completion summary:
 Code Review Complete
 ============================================
 
-Review ID: review-20260111
-Document: .specify/reviews/review-20260111.md
+Review ID: review-20260111-143025
+Document: .specify/reviews/review-20260111-143025.md
 
 Summary:
   Categories reviewed: 7
@@ -303,7 +347,7 @@ Summary:
   Approved: 31
   Deferred: 11
 
-Phase Created: 0041 - Code Review 2026-01-11
+Phase Created: 0041 - Code Review 20260111-143025
   Location: ROADMAP.md (Phase 0041 section - hotfix after 0040)
 
 Backlog Updated: 11 items added
@@ -316,6 +360,35 @@ Next Steps:
 
 ============================================
 ```
+
+---
+
+### Step 9: Auto-Orchestrate (--fix mode only)
+
+When `--fix` flag is set, automatically chain to orchestrate:
+
+**9a. Display handoff message:**
+
+```text
+============================================
+Auto-Fix Mode: Chaining to Orchestrate
+============================================
+
+Phase 0041 created with 35 approved findings.
+Starting implementation workflow...
+
+[Invoking /speckit.orchestrate]
+```
+
+**9b. Invoke orchestrate:**
+
+Immediately proceed with `/speckit.orchestrate` workflow for the newly created phase. The orchestrate command will:
+- Create spec.md from review findings
+- Create plan.md with implementation approach
+- Generate tasks.md with actionable items
+- Begin implementation
+
+**Note**: In `--fix` mode, the orchestrate workflow should also minimize interaction - proceeding through spec/plan/tasks without requiring approval, then implementing all tasks autonomously.
 
 ---
 
@@ -357,8 +430,8 @@ Output indicator:
 This command **MUST NOT**:
 - Propose brand new features (only improve existing code)
 - Suggest breaking changes without explicit user confirmation
-- Auto-approve any findings (always interactive)
-- Skip categories without user consent
+- Auto-approve any findings (always interactive) - **EXCEPTION**: `--fix` mode auto-approves effort ≤4
+- Skip categories without user consent - **EXCEPTION**: `--fix` mode processes all categories
 - Modify any code during the review (read-only analysis)
 
 ### Finding Quality

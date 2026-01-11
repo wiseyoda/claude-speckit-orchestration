@@ -416,10 +416,20 @@ gate_implement() {
   if [[ -n "$test_cmd" ]]; then
     echo ""
     echo "  Checking tests ($test_cmd)..."
-    if $test_cmd >/dev/null 2>&1; then
+    local test_output
+    local test_exit=0
+    test_output=$($test_cmd 2>&1) || test_exit=$?
+
+    if [[ $test_exit -eq 0 ]]; then
       log_success "Tests passing"
     else
-      log_warn "Tests failing or not configured"
+      log_warn "Tests failed (exit code: $test_exit)"
+      # Show first 10 lines of output for context
+      if [[ -n "$test_output" ]]; then
+        echo ""
+        echo "  Test output (first 10 lines):"
+        echo "$test_output" | head -10 | sed 's/^/    /'
+      fi
       ((warnings++)) || true
     fi
   fi

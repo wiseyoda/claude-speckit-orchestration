@@ -35,7 +35,8 @@ This allows inserting urgent work without renumbering existing phases.
 | 0020 | Onboarding Polish | ✅ Complete | New user can set up without confusion |
 | 0030 | Test Suite Completion | ✅ Complete | All tests pass on macOS and Linux |
 | 0040 | Integration Options | ✅ Complete | Existing docs imported successfully |
-| 0041 | Code Review Findings | ✅ In Progress | All review findings addressed |
+| 0041 | Code Review Findings | ✅ Complete | All review findings addressed |
+| 0042 | Code Review 2026-01-11 | 🔄 Not Started | 18 findings addressed |
 | 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
@@ -225,6 +226,42 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
+### 0042 - Code Review 2026-01-11
+
+**Goal**: Address code quality findings from systematic review.
+
+**Scope**:
+- 18 approved findings across 6 categories
+- Best Practices (5): POSIX compliance, 4-digit phase consistency
+- Refactoring (2): Doctor check abstraction, common.sh cleanup
+- Hardening (3): Test runner error handling, temp file traps, ADR validation
+- Missing Features (3): Gate/lessons dispatcher, memory doc context
+- Orphaned Code (2): Remove no-op variable, clarify scripts structure
+- Outdated Docs (3): README/CLAUDE.md updates
+
+**Review Document**: `.specify/reviews/review-20260111.md`
+
+**User Stories**:
+1. As a developer, I can use POSIX-compliant scripts across bash versions
+2. As a user, I see consistent 4-digit phase numbers everywhere
+3. As a contributor, I find documentation that matches implementation
+
+**Deliverables**:
+- POSIX compatibility fixes (remove `declare -a`, `declare -A`)
+- 4-digit phase number consistency in feature.sh, bin/speckit
+- Gate and lessons commands in dispatcher
+- Updated README.md and CLAUDE.md
+- Temp file trap handlers where missing
+
+**Verification Gate**:
+- All 18 findings addressed
+- No regressions in existing tests
+- shellcheck passes on modified scripts
+
+**Estimated Complexity**: Medium (18 findings)
+
+---
+
 ## Milestone 1: Extended Features
 
 ### 1010 - Web UI Dashboard
@@ -261,6 +298,10 @@ This allows inserting urgent work without renumbering existing phases.
 | Story-Based Orchestration | Execute user stories independently with MVP checkpoints | Medium | Deferred from Phase 0050 - current workflow works well |
 | Parallel phase execution | Run independent phases concurrently | Low | Requires dependency graph |
 | Team collaboration | Multi-user roadmap editing, conflict resolution | Low | Future vision |
+| [RF001] Refactor speckit-roadmap.sh | Large file (1425 lines) - extract subcommands | Low | Deferred from review 2026-01-11 |
+| [RF002] Extract scaffold templates | Move inline templates to separate files | Low | Deferred from review 2026-01-11 |
+| [OE001] Scaffold type templates | Simplify project-type-specific templates | Low | Deferred from review 2026-01-11 |
+| [OE002] Manifest versioning | Consider simplifying manifest complexity | Low | Deferred from review 2026-01-11 |
 
 ---
 
@@ -343,3 +384,4 @@ Branch names remain unchanged (branches use short names, not phase numbers).
 | 2026-01-10 | Migrated to v2.1 ABBC numbering, added Phase 0010 (Roadmap Flexibility) |
 | 2026-01-10 | Backlog triage: created 0015 (Workflow Commands), promoted items to 0020 |
 | 2026-01-11 | Added Phase 0041 (Code Review Findings) - 36 findings from /speckit.review |
+| 2026-01-11 | Added Phase 0042 (Code Review 2026-01-11) - 18 findings from /speckit.review |

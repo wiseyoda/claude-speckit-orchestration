@@ -298,6 +298,18 @@ cmd_context() {
   [[ "$DOC_QUICKSTART" == "true" ]] && available_docs+=("quickstart.md")
   [[ "$DOC_CHECKLISTS" == "true" ]] && available_docs+=("checklists/")
 
+  # Check memory documents
+  local memory_dir="${repo_root}/.specify/memory"
+  local MEM_CONSTITUTION=false
+  local MEM_TECH_STACK=false
+  local MEM_PATTERNS=false
+  local MEM_DECISIONS=false
+
+  [[ -f "${memory_dir}/constitution.md" ]] && MEM_CONSTITUTION=true
+  [[ -f "${memory_dir}/tech-stack.md" ]] && MEM_TECH_STACK=true
+  [[ -f "${memory_dir}/patterns.md" ]] && MEM_PATTERNS=true
+  [[ -f "${memory_dir}/decisions.md" ]] && MEM_DECISIONS=true
+
   # Output results
   if is_json_output; then
     # Paths-only mode: minimal JSON output
@@ -330,6 +342,17 @@ EOF
 EOF
 )
 
+      local memory_json
+      memory_json=$(cat << EOF
+{
+  "constitution": ${MEM_CONSTITUTION},
+  "tech_stack": ${MEM_TECH_STACK},
+  "patterns": ${MEM_PATTERNS},
+  "decisions": ${MEM_DECISIONS}
+}
+EOF
+)
+
       local available_json="[]"
       if [[ ${#available_docs[@]} -gt 0 ]]; then
         available_json=$(printf '"%s",' "${available_docs[@]}")
@@ -343,6 +366,7 @@ EOF
   "phase": "$phase",
   "repo_root": "$repo_root",
   "docs": $docs_json,
+  "memory_docs": $memory_json,
   "available_docs": $available_json,
   "FEATURE_DIR": "$feature_dir",
   "AVAILABLE_DOCS": $available_json
@@ -380,6 +404,13 @@ EOF
         [[ "$DOC_CONTRACTS" == "true" ]] && print_status ok "contracts/" || print_status skip "contracts/ (optional)"
         [[ "$DOC_QUICKSTART" == "true" ]] && print_status ok "quickstart.md" || print_status skip "quickstart.md (optional)"
         [[ "$DOC_CHECKLISTS" == "true" ]] && print_status ok "checklists/" || print_status skip "checklists/ (optional)"
+
+        echo ""
+        echo "MEMORY_DOCS:"
+        [[ "$MEM_CONSTITUTION" == "true" ]] && print_status ok "constitution.md" || print_status warn "constitution.md (recommended)"
+        [[ "$MEM_TECH_STACK" == "true" ]] && print_status ok "tech-stack.md" || print_status skip "tech-stack.md (optional)"
+        [[ "$MEM_PATTERNS" == "true" ]] && print_status ok "patterns.md" || print_status skip "patterns.md (optional)"
+        [[ "$MEM_DECISIONS" == "true" ]] && print_status ok "decisions.md" || print_status skip "decisions.md (optional)"
       fi
     fi
   fi

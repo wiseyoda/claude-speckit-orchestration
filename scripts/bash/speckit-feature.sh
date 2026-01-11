@@ -28,7 +28,7 @@ USAGE:
 
 COMMANDS:
     create <phase> <name>   Create new feature directory structure
-                            Phase: 001, 002, etc. (3-digit number)
+                            Phase: 0010, 0020, etc. (4-digit ABBC format)
                             Name: kebab-case name (e.g., "user-auth")
 
     list                    List all features in specs/
@@ -42,8 +42,8 @@ OPTIONS:
     -h, --help          Show this help
 
 EXAMPLES:
-    speckit feature create 001 project-setup
-    speckit feature create 002 core-engine --no-branch
+    speckit feature create 0010 project-setup
+    speckit feature create 0020 core-engine --no-branch
     speckit feature list
     speckit feature list --json
     speckit feature status
@@ -61,10 +61,15 @@ get_specs_dir() {
   echo "${repo_root}/specs"
 }
 
-# Normalize phase number to 3 digits
+# Normalize phase number to 4 digits (ABBC format)
 normalize_phase() {
   local phase="$1"
-  printf "%03d" "${phase#0}" 2>/dev/null || echo "$phase"
+  # Strip all leading zeros to avoid octal interpretation
+  local stripped="${phase##+(0)}"
+  stripped="${stripped:-0}"  # Default to 0 if all zeros
+  # Remove leading zeros using shell arithmetic
+  stripped=$((10#$phase))
+  printf "%04d" "$stripped" 2>/dev/null || echo "$phase"
 }
 
 # Validate feature name (kebab-case)
@@ -145,7 +150,7 @@ cmd_create() {
   if [[ -z "$phase" ]] || [[ -z "$name" ]]; then
     log_error "Phase and name are required"
     echo "Usage: speckit feature create <phase> <name>"
-    echo "Example: speckit feature create 001 project-setup"
+    echo "Example: speckit feature create 0010 project-setup"
     exit 1
   fi
 
@@ -306,7 +311,7 @@ cmd_list() {
     local name
     name=$(basename "$dir")
     features+=("$name")
-  done < <(find "$specs_dir" -maxdepth 1 -type d -name "[0-9][0-9][0-9]-*" -print0 | sort -z)
+  done < <(find "$specs_dir" -maxdepth 1 -type d \( -name "[0-9][0-9][0-9]-*" -o -name "[0-9][0-9][0-9][0-9]-*" \) -print0 | sort -z)
 
   if is_json_output; then
     local json_array="[]"
@@ -362,13 +367,13 @@ cmd_status() {
         --argjson plan "$has_plan" \
         --argjson tasks "$has_tasks" \
         '. + [{"name": $name, "has_spec": $spec, "has_plan": $plan, "has_tasks": $tasks}]')
-    done < <(find "$specs_dir" -maxdepth 1 -type d -name "[0-9][0-9][0-9]-*" -print0 | sort -z)
+    done < <(find "$specs_dir" -maxdepth 1 -type d \( -name "[0-9][0-9][0-9]-*" -o -name "[0-9][0-9][0-9][0-9]-*" \) -print0 | sort -z)
 
     echo "{\"features\": $features}"
   else
     # Three-Line Rule: Count features first
     local feature_count
-    feature_count=$(find "$specs_dir" -maxdepth 1 -type d -name "[0-9][0-9][0-9]-*" 2>/dev/null | wc -l | tr -d ' ')
+    feature_count=$(find "$specs_dir" -maxdepth 1 -type d \( -name "[0-9][0-9][0-9]-*" -o -name "[0-9][0-9][0-9][0-9]-*" \) 2>/dev/null | wc -l | tr -d ' ')
     echo -e "${BLUE}INFO${RESET}: $feature_count feature(s) in specs/"
     echo ""
     # Details (line 3+)
@@ -387,7 +392,7 @@ cmd_status() {
       [[ -f "${dir}/tasks.md" ]] && tasks_status="✓"
 
       printf "%-30s %-10s %-10s %-10s\n" "$name" "$spec_status" "$plan_status" "$tasks_status"
-    done < <(find "$specs_dir" -maxdepth 1 -type d -name "[0-9][0-9][0-9]-*" -print0 | sort -z)
+    done < <(find "$specs_dir" -maxdepth 1 -type d \( -name "[0-9][0-9][0-9]-*" -o -name "[0-9][0-9][0-9][0-9]-*" \) -print0 | sort -z)
   fi
 }
 

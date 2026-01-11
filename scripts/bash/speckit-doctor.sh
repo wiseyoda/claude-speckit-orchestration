@@ -65,21 +65,33 @@ EOF
 # Check Functions
 # =============================================================================
 
-# Track issues for summary
-declare -a ISSUES=()
-declare -a WARNINGS=()
-declare -a FIXED=()
+# Track issues for summary (POSIX-compatible, newline-delimited)
+ISSUES=""
+WARNINGS=""
+FIXED=""
 
 add_issue() {
-  ISSUES+=("$1")
+  if [[ -n "$ISSUES" ]]; then
+    ISSUES="${ISSUES}"$'\n'"$1"
+  else
+    ISSUES="$1"
+  fi
 }
 
 add_warning() {
-  WARNINGS+=("$1")
+  if [[ -n "$WARNINGS" ]]; then
+    WARNINGS="${WARNINGS}"$'\n'"$1"
+  else
+    WARNINGS="$1"
+  fi
 }
 
 add_fixed() {
-  FIXED+=("$1")
+  if [[ -n "$FIXED" ]]; then
+    FIXED="${FIXED}"$'\n'"$1"
+  else
+    FIXED="$1"
+  fi
 }
 
 # Check SpecKit system installation
@@ -898,9 +910,20 @@ run_checks() {
 }
 
 show_summary() {
-  local issue_count=${#ISSUES[@]}
-  local warning_count=${#WARNINGS[@]}
-  local fixed_count=${#FIXED[@]}
+  # Count items (POSIX-compatible, newline-delimited strings)
+  local issue_count=0
+  local warning_count=0
+  local fixed_count=0
+
+  if [[ -n "$ISSUES" ]]; then
+    issue_count=$(echo "$ISSUES" | wc -l | tr -d ' ')
+  fi
+  if [[ -n "$WARNINGS" ]]; then
+    warning_count=$(echo "$WARNINGS" | wc -l | tr -d ' ')
+  fi
+  if [[ -n "$FIXED" ]]; then
+    fixed_count=$(echo "$FIXED" | wc -l | tr -d ' ')
+  fi
 
   echo ""
   # Three-Line Rule: Summary first
@@ -927,41 +950,41 @@ show_summary() {
   if [[ $fixed_count -gt 0 ]]; then
     echo ""
     echo -e "${GREEN}Fixed:${RESET}"
-    for item in "${FIXED[@]}"; do
-      echo "  - $item"
-    done
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && echo "  - $item"
+    done <<< "$FIXED"
   fi
 
   if [[ $issue_count -gt 0 ]]; then
     echo ""
     echo -e "${RED}Issues:${RESET}"
-    for item in "${ISSUES[@]}"; do
-      echo "  - $item"
-    done
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && echo "  - $item"
+    done <<< "$ISSUES"
   fi
 
   if [[ $warning_count -gt 0 ]]; then
     echo ""
     echo -e "${YELLOW}Warnings:${RESET}"
-    for item in "${WARNINGS[@]}"; do
-      echo "  - $item"
-    done
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && echo "  - $item"
+    done <<< "$WARNINGS"
   fi
 
   if is_json_output; then
     local issues_json warnings_json fixed_json
-    if [[ ${#ISSUES[@]} -gt 0 ]]; then
-      issues_json=$(printf '%s\n' "${ISSUES[@]}" | jq -R -s 'split("\n") | map(select(. != ""))')
+    if [[ -n "$ISSUES" ]]; then
+      issues_json=$(echo "$ISSUES" | jq -R -s 'split("\n") | map(select(. != ""))')
     else
       issues_json="[]"
     fi
-    if [[ ${#WARNINGS[@]} -gt 0 ]]; then
-      warnings_json=$(printf '%s\n' "${WARNINGS[@]}" | jq -R -s 'split("\n") | map(select(. != ""))')
+    if [[ -n "$WARNINGS" ]]; then
+      warnings_json=$(echo "$WARNINGS" | jq -R -s 'split("\n") | map(select(. != ""))')
     else
       warnings_json="[]"
     fi
-    if [[ ${#FIXED[@]} -gt 0 ]]; then
-      fixed_json=$(printf '%s\n' "${FIXED[@]}" | jq -R -s 'split("\n") | map(select(. != ""))')
+    if [[ -n "$FIXED" ]]; then
+      fixed_json=$(echo "$FIXED" | jq -R -s 'split("\n") | map(select(. != ""))')
     else
       fixed_json="[]"
     fi

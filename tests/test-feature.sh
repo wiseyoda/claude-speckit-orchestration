@@ -15,13 +15,13 @@ test_feature_create() {
   git commit --allow-empty -m "Initial" -q
   mkdir -p .specify
 
-  # Create a feature
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-feature.sh" create 001 test-feature --no-branch
+  # Create a feature (now creates 4-digit phases)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-feature.sh" create 0010 test-feature --no-branch
 
-  assert_dir_exists "specs/001-test-feature" "Feature directory created"
-  assert_file_exists "specs/001-test-feature/spec.md" "spec.md created"
-  assert_dir_exists "specs/001-test-feature/checklists" "checklists dir created"
-  assert_dir_exists "specs/001-test-feature/contracts" "contracts dir created"
+  assert_dir_exists "specs/0010-test-feature" "Feature directory created"
+  assert_file_exists "specs/0010-test-feature/spec.md" "spec.md created"
+  assert_dir_exists "specs/0010-test-feature/checklists" "checklists dir created"
+  assert_dir_exists "specs/0010-test-feature/contracts" "contracts dir created"
 }
 
 test_feature_create_normalizes_phase() {
@@ -29,10 +29,10 @@ test_feature_create_normalizes_phase() {
   git commit --allow-empty -m "Initial" -q
   mkdir -p .specify
 
-  # Create with single digit phase (should normalize to 3 digits)
+  # Create with single digit phase (should normalize to 4 digits)
   bash "${PROJECT_ROOT}/scripts/bash/speckit-feature.sh" create 2 my-feature --no-branch
 
-  assert_dir_exists "specs/002-my-feature" "Phase normalized to 002"
+  assert_dir_exists "specs/0002-my-feature" "Phase normalized to 0002"
 }
 
 test_feature_create_creates_branch() {
@@ -40,11 +40,11 @@ test_feature_create_creates_branch() {
   git commit --allow-empty -m "Initial" -q
   mkdir -p .specify
 
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-feature.sh" create 003 branched-feature
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-feature.sh" create 0030 branched-feature
 
   local branch
   branch=$(git branch --show-current)
-  assert_equals "003-branched-feature" "$branch" "Switched to feature branch"
+  assert_equals "0030-branched-feature" "$branch" "Switched to feature branch"
 }
 
 test_feature_create_rejects_invalid_name() {
@@ -52,27 +52,27 @@ test_feature_create_rejects_invalid_name() {
   mkdir -p .specify
 
   # Invalid name (uppercase)
-  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 001 InvalidName --no-branch" "Rejects uppercase"
+  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 0010 InvalidName --no-branch" "Rejects uppercase"
 
   # Invalid name (starts with number)
-  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 001 123-feature --no-branch" "Rejects leading number"
+  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 0010 123-feature --no-branch" "Rejects leading number"
 }
 
 test_feature_create_rejects_duplicate_phase() {
   git init -q .
   git commit --allow-empty -m "Initial" -q
-  mkdir -p .specify specs/001-existing
+  mkdir -p .specify specs/0010-existing
 
   # Try to create feature with same phase
-  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 001 new-feature --no-branch" "Rejects duplicate phase"
+  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 0010 new-feature --no-branch" "Rejects duplicate phase"
 }
 
 test_feature_create_rejects_existing_dir() {
   git init -q .
-  mkdir -p .specify specs/002-existing-feature
+  mkdir -p .specify specs/0020-existing-feature
 
   # Try to create feature with same name
-  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 002 existing-feature --no-branch" "Rejects existing directory"
+  assert_command_fails "bash ${PROJECT_ROOT}/scripts/bash/speckit-feature.sh create 0020 existing-feature --no-branch" "Rejects existing directory"
 }
 
 test_feature_list() {

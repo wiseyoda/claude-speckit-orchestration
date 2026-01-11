@@ -1259,9 +1259,9 @@ cmd_infer() {
 
     # Find most recent phase directory
     local latest_phase_dir
-    latest_phase_dir=$(find "${repo_root}/specs" -maxdepth 1 -type d -name "[0-9][0-9][0-9]-*" 2>/dev/null | sort -r | head -1)
+    latest_phase_dir=$(find "${repo_root}/specs" -maxdepth 1 -type d \( -name "[0-9][0-9][0-9]-*" -o -name "[0-9][0-9][0-9][0-9]-*" \) 2>/dev/null | sort -r | head -1)
     if [[ -n "$latest_phase_dir" ]]; then
-      current_phase=$(basename "$latest_phase_dir" | grep -oE '^[0-9]{3}')
+      current_phase=$(basename "$latest_phase_dir" | grep -oE '^[0-9]{3,4}')
       log_info "Detected phase from specs: $current_phase"
     else
       log_info "No phase directories found in specs/"

@@ -54,20 +54,30 @@ EOF
 # Comparison Functions
 # =============================================================================
 
-declare -a DIFFERENCES=()
-declare -a FIXES=()
+# POSIX-compatible storage (newline-delimited strings)
+DIFFERENCES=""
+FIXES=""
 
 add_difference() {
   local area="$1"
   local state_value="$2"
   local file_value="$3"
   local description="$4"
+  local entry="${area}|${state_value}|${file_value}|${description}"
 
-  DIFFERENCES+=("${area}|${state_value}|${file_value}|${description}")
+  if [[ -n "$DIFFERENCES" ]]; then
+    DIFFERENCES="${DIFFERENCES}"$'\n'"${entry}"
+  else
+    DIFFERENCES="${entry}"
+  fi
 }
 
 add_fix() {
-  FIXES+=("$1")
+  if [[ -n "$FIXES" ]]; then
+    FIXES="${FIXES}"$'\n'"$1"
+  else
+    FIXES="$1"
+  fi
 }
 
 # Compare task completion
@@ -309,7 +319,7 @@ apply_fixes() {
   local state_file
   state_file="$(get_state_file)"
 
-  if [[ ${#DIFFERENCES[@]} -eq 0 ]]; then
+  if [[ -z "$DIFFERENCES" ]]; then
     log_success "No differences found - state and files are in sync"
     return
   fi
@@ -318,7 +328,8 @@ apply_fixes() {
   print_header "Applying Fixes"
   echo ""
 
-  for diff in "${DIFFERENCES[@]}"; do
+  while IFS= read -r diff; do
+    [[ -z "$diff" ]] && continue
     IFS='|' read -r area state_value file_value description <<< "$diff"
 
     case "$area" in
@@ -347,7 +358,7 @@ apply_fixes() {
         log_warn "Cannot auto-fix: $description"
         ;;
     esac
-  done
+  done <<< "$DIFFERENCES"
 
   # Update timestamp
   if [[ "$trust_mode" == "files" ]]; then
@@ -360,28 +371,39 @@ show_summary() {
   print_header "Summary"
   echo ""
 
-  if [[ ${#DIFFERENCES[@]} -eq 0 ]]; then
+  # Count differences and fixes (POSIX-compatible)
+  local diff_count=0
+  local fix_count=0
+  if [[ -n "$DIFFERENCES" ]]; then
+    diff_count=$(echo "$DIFFERENCES" | wc -l | tr -d ' ')
+  fi
+  if [[ -n "$FIXES" ]]; then
+    fix_count=$(echo "$FIXES" | wc -l | tr -d ' ')
+  fi
+
+  if [[ $diff_count -eq 0 ]]; then
     log_success "State and files are in sync!"
     echo ""
     echo "No reconciliation needed."
   else
-    log_warn "Found ${#DIFFERENCES[@]} difference(s):"
+    log_warn "Found ${diff_count} difference(s):"
     echo ""
 
-    for diff in "${DIFFERENCES[@]}"; do
+    while IFS= read -r diff; do
+      [[ -z "$diff" ]] && continue
       IFS='|' read -r area state_value file_value description <<< "$diff"
       echo "  • ${description}"
       echo "    State: ${state_value}"
       echo "    Files: ${file_value}"
       echo ""
-    done
+    done <<< "$DIFFERENCES"
 
-    if [[ ${#FIXES[@]} -gt 0 ]]; then
+    if [[ $fix_count -gt 0 ]]; then
       echo ""
-      log_success "Applied ${#FIXES[@]} fix(es):"
-      for fix in "${FIXES[@]}"; do
-        echo "  • $fix"
-      done
+      log_success "Applied ${fix_count} fix(es):"
+      while IFS= read -r fix; do
+        [[ -n "$fix" ]] && echo "  • $fix"
+      done <<< "$FIXES"
     else
       echo "To fix, run:"
       echo "  speckit reconcile --trust-files    # Update state from files"
@@ -391,15 +413,15 @@ show_summary() {
 
   if is_json_output; then
     local diffs_json='[]'
-    if [[ ${#DIFFERENCES[@]} -gt 0 ]]; then
-      diffs_json=$(printf '%s\n' "${DIFFERENCES[@]}" | jq -R -s '
+    if [[ -n "$DIFFERENCES" ]]; then
+      diffs_json=$(echo "$DIFFERENCES" | jq -R -s '
         split("\n") |
         map(select(. != "")) |
         map(split("|") | {area: .[0], state: .[1], files: .[2], description: .[3]})
       ')
     fi
     echo ""
-    echo "{\"in_sync\": $(if [[ ${#DIFFERENCES[@]} -eq 0 ]]; then echo "true"; else echo "false"; fi), \"differences\": $diffs_json, \"fixes_applied\": ${#FIXES[@]}}"
+    echo "{\"in_sync\": $(if [[ $diff_count -eq 0 ]]; then echo "true"; else echo "false"; fi), \"differences\": $diffs_json, \"fixes_applied\": ${fix_count}}"
   fi
 }
 
@@ -470,7 +492,7 @@ main() {
   show_summary
 
   # Exit code based on differences
-  if [[ ${#DIFFERENCES[@]} -gt 0 && -z "$trust_mode" ]]; then
+  if [[ -n "$DIFFERENCES" && -z "$trust_mode" ]]; then
     exit 2  # Differences found
   fi
 }

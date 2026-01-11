@@ -85,7 +85,7 @@ COMMANDS:
 
     feature     Feature operations
                   create <phase> <n>  Create new feature directory
-                                      Phase: 001, 002, etc.
+                                      Phase: 0010, 0020, etc. (4-digit)
                                       Name: kebab-case name
 
     git         Git operations
@@ -180,8 +180,8 @@ OPTIONS:
 
 EXAMPLES:
     speckit state get config
-    speckit git branch create 002-flow-engine
-    speckit roadmap update 002 complete
+    speckit git branch create 0020-flow-engine
+    speckit roadmap update 0020 complete
     speckit checklist status
     speckit doctor --fix
 

@@ -83,6 +83,40 @@ extract_adr_status() {
   echo "$status"
 }
 
+# Validate ADR file format
+# Returns 0 if valid, 1 if missing recommended sections
+validate_adr_format() {
+  local file="$1"
+  local warnings=""
+
+  # Check for H1 title
+  if ! grep -q "^# " "$file" 2>/dev/null; then
+    warnings="${warnings}missing title; "
+  fi
+
+  # Check for Status
+  if ! grep -qiE "^(status[:\s]|\*\*Status\*\*)" "$file" 2>/dev/null; then
+    warnings="${warnings}missing status; "
+  fi
+
+  # Check for Context section
+  if ! grep -qiE "^##.*context" "$file" 2>/dev/null; then
+    warnings="${warnings}missing context section; "
+  fi
+
+  # Check for Decision section
+  if ! grep -qiE "^##.*decision" "$file" 2>/dev/null; then
+    warnings="${warnings}missing decision section; "
+  fi
+
+  if [[ -n "$warnings" ]]; then
+    echo "${warnings%%; }"
+    return 1
+  fi
+
+  return 0
+}
+
 # Find ADR files in directory
 find_adr_files() {
   local dir="$1"
@@ -229,18 +263,35 @@ import_adrs() {
   # Create target directory
   mkdir -p "$adrs_dir"
 
-  # Copy files
+  # Copy files with validation
   local copied=0
+  local validation_warnings=0
   while IFS= read -r file; do
     [[ -z "$file" ]] && continue
     local basename
     basename=$(basename "$file")
+
+    # Validate ADR format
+    local format_issues
+    if ! format_issues=$(validate_adr_format "$file"); then
+      ((validation_warnings++)) || true
+      if ! is_json_output; then
+        log_warn "$(basename "$file"): ${format_issues}"
+      fi
+    fi
+
+    # Copy regardless of validation (warning only)
     cp "$file" "${adrs_dir}/${basename}"
     ((copied++)) || true
     if ! is_json_output; then
       echo "  Copied: ${basename}"
     fi
   done <<< "$adr_files"
+
+  if [[ $validation_warnings -gt 0 ]] && ! is_json_output; then
+    echo ""
+    log_warn "${validation_warnings} file(s) have format issues (imported anyway)"
+  fi
 
   # Generate index
   generate_adr_index "$target_dir" "$rel_source" "$adr_files"

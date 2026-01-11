@@ -470,6 +470,12 @@ speckit tasks status --json
 | `/speckit.memory` | Clean up, verify, and reconcile memory documents |
 | `/speckit.memory-init` | Generate memory docs from codebase analysis |
 
+### Quality & Review Commands
+
+| Command | Description |
+|---------|-------------|
+| `/speckit.review` | Systematic code review with categorized findings |
+
 ### Utility Commands
 
 | Command | Description |
