@@ -100,48 +100,85 @@ Report if `constitution.md` is missing (required). For RECOMMENDED documents, re
 
 ### 3. Detect Errant Markdown Files
 
-Find all `.md` files outside expected locations:
+Find all `.md` files outside expected locations. Use a strict allowlist approach.
 
-**Expected locations (do not flag):**
+**Expected directory locations (do not flag files within):**
 - `.specify/memory/` - Memory documents
-- `.specify/templates/` - Templates
+- `.specify/templates/` - State templates
 - `.specify/archive/` - Archived documents
+- `.specify/discovery/` - Discovery state files
 - `specs/*/` - Feature specifications
-- `.claude/commands/` - Skill files
-- Root level expected files:
-  - `README.md`
-  - `CLAUDE.md`
-  - `ROADMAP.md`
-  - `CONTRIBUTING.md`
-  - `LICENSE.md`
-  - `CHANGELOG.md`
-  - `CODE_OF_CONDUCT.md`
-  - `SECURITY.md`
+- `commands/` - Skill files (including `archive/` and `utilities/`)
+- `.claude/commands/` - Alternative skill location
+- `templates/` - Document templates
+- `docs/` - Documentation
+- `tests/` - Test fixtures
+
+**Root level allowlist (ONLY these files are allowed at project root):**
+| File | Purpose |
+|------|---------|
+| `README.md` | Project readme |
+| `CLAUDE.md` | Claude Code instructions |
+| `ROADMAP.md` | Project roadmap |
+| `CONTRIBUTING.md` | Contribution guidelines |
+| `LICENSE.md` or `LICENSE` | License file |
+| `CHANGELOG.md` | Version changelog |
+| `CODE_OF_CONDUCT.md` | Community standards |
+| `SECURITY.md` | Security policy |
+
+**Any other `.md` file at root is ERRANT** - including tracking files, analysis docs, handoff notes, plans, etc.
 
 **Errant file detection:**
 ```bash
-find . -name "*.md" \
-  -not -path "./node_modules/*" \
-  -not -path "./.git/*" \
+# Step 1: Find all .md files not in expected directories
+ERRANT_FILES=$(find . -maxdepth 1 -name "*.md" -type f \
+  ! -name "README.md" \
+  ! -name "CLAUDE.md" \
+  ! -name "ROADMAP.md" \
+  ! -name "CONTRIBUTING.md" \
+  ! -name "LICENSE.md" \
+  ! -name "CHANGELOG.md" \
+  ! -name "CODE_OF_CONDUCT.md" \
+  ! -name "SECURITY.md" \
+  2>/dev/null | sort)
+
+# Step 2: Also check for errant .md files in unexpected subdirectories
+# (files in random folders that aren't in the allowlist above)
+ERRANT_SUBDIRS=$(find . -name "*.md" -type f \
   -not -path "./.specify/memory/*" \
   -not -path "./.specify/templates/*" \
   -not -path "./.specify/archive/*" \
+  -not -path "./.specify/discovery/*" \
   -not -path "./specs/*" \
+  -not -path "./commands/*" \
   -not -path "./.claude/commands/*" \
-  -not -name "README.md" \
-  -not -name "CLAUDE.md" \
-  -not -name "ROADMAP.md" \
-  -not -name "CONTRIBUTING.md" \
-  -not -name "LICENSE.md" \
-  -not -name "CHANGELOG.md" \
-  -not -name "CODE_OF_CONDUCT.md" \
-  -not -name "SECURITY.md"
+  -not -path "./templates/*" \
+  -not -path "./docs/*" \
+  -not -path "./tests/*" \
+  -not -path "./node_modules/*" \
+  -not -path "./.git/*" \
+  -maxdepth 1 -prune \
+  2>/dev/null | sort)
 ```
 
-For each errant file found, determine disposition:
-- **Archive**: Move to `.specify/archive/` (default for temporary/tracking files)
-- **Incorporate**: Merge content into relevant memory document
-- **Delete**: Remove if obsolete or duplicate
+**For each errant file found:**
+
+1. **Read the file** to understand its content
+2. **Determine disposition**:
+   - **Archive**: Move to `.specify/archive/` (default for tracking/analysis/handoff files)
+   - **Incorporate**: Extract key decisions into memory documents, then archive
+   - **Delete**: Only if content is obsolete, duplicate, or fully incorporated
+
+**Common errant file patterns and recommended dispositions:**
+
+| Pattern | Examples | Disposition |
+|---------|----------|-------------|
+| Analysis/tracking | `*-ANALYSIS.md`, `*-TRACKING.md` | Archive |
+| Planning docs | `*-PLAN.md`, `*-PLANNING.md` | Archive (promote decisions to memory first) |
+| Handoff notes | `HANDOFF.md`, `CONTEXT.md` | Archive |
+| Session notes | `NOTES.md`, `SESSION-*.md` | Archive or delete |
+| Old specs | `SPEC-*.md` at root | Move to `specs/` or archive |
+| Question lists | `QUESTIONS*.md` | Incorporate into spec or archive |
 
 ### 4. Analyze Memory Document Quality
 
