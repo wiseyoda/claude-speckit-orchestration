@@ -1,11 +1,28 @@
 # SpecKit Development Roadmap
 
 > **Source of Truth**: This document defines all feature phases, their order, and completion status.
-> Work proceeds sequentially through phases. Each phase produces a deployable increment.
+> Work proceeds through phases sequentially. Each phase produces a deployable increment.
 
 **Project**: SpecKit - Spec-Driven Development Framework for Claude Code
 **Created**: 2026-01-10
-**Status**: Active Development (v2.0 complete, polishing)
+**Schema Version**: 2.1 (ABBC numbering)
+**Status**: Active Development
+
+---
+
+## Phase Numbering (v2.1)
+
+Phases use **ABBC** format:
+- **A** = Milestone (0-9) - Major version or project stage
+- **BB** = Phase (01-99) - Sequential work within milestone
+- **C** = Hotfix (0-9) - Insert slot (0 = main phase, 1-9 = hotfixes/inserts)
+
+**Examples**:
+- `2010` = Milestone 2, Phase 01, no hotfix
+- `2021` = Hotfix 1 inserted after Phase 02
+- `2022` = Hotfix 2 inserted after Phase 02
+
+This allows inserting urgent work without renumbering existing phases.
 
 ---
 
@@ -13,51 +30,83 @@
 
 | Phase | Name | Status | Verification Gate |
 |-------|------|--------|-------------------|
-| 001 | Onboarding Polish | ⬜ Not Started | New user can set up without confusion |
-| 002 | Test Suite Completion | ⬜ Not Started | All tests pass on macOS and Linux |
-| 003 | Integration Options | ⬜ Not Started | Existing docs imported successfully |
-| 004 | Story-Based Orchestration | ⬜ Not Started | **USER GATE**: Stories execute independently |
-| 005 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
+| 2010 | Roadmap Flexibility | ⬜ Not Started | Insert/defer commands work |
+| 2020 | Onboarding Polish | ⬜ Not Started | New user can set up without confusion |
+| 2030 | Test Suite Completion | ⬜ Not Started | All tests pass on macOS and Linux |
+| 2040 | Integration Options | ⬜ Not Started | Existing docs imported successfully |
+| 2050 | Story-Based Orchestration | ⬜ Not Started | **USER GATE**: Stories execute independently |
+| 2060 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
 
 ---
 
-## Polish Phases (001-003)
+## Milestone 2: v2.x Development
 
-### 001 - Onboarding Polish
+### 2010 - Roadmap Flexibility
+
+**Goal**: Enable mid-roadmap changes without painful renumbering.
+
+**Scope**:
+- Implement ABBC numbering scheme (v2.1 schema)
+- Add `speckit roadmap insert` command
+- Add `speckit roadmap defer` command
+- Add Backlog section support to ROADMAP.md
+- Migration from v2.0 → v2.1 (convert 001 → 2010, etc.)
+- Update roadmap template with sparse numbering
+
+**User Stories**:
+1. As a developer, I can insert a hotfix phase after user testing discovers issues
+2. As a developer, I can defer low-priority phases to backlog
+3. As a developer, I can migrate existing 2.0 roadmaps to 2.1 format
+
+**Deliverables**:
+- `scripts/bash/speckit-roadmap.sh` - Add insert/defer commands
+- `scripts/bash/speckit-migrate.sh` - Add 2.0→2.1 roadmap migration
+- `templates/roadmap-template.md` - Update with ABBC numbering
+- Updated schema documentation
+
+**Verification Gate**:
+- `speckit roadmap insert --after 2020 "Urgent Fix"` creates phase 2021
+- `speckit roadmap defer 2040` moves phase to Backlog
+- Migration converts 001→2010, 002→2020 correctly
+
+**Estimated Complexity**: Medium
+
+---
+
+### 2020 - Onboarding Polish
 
 **Goal**: Make the first-run experience smooth and project-agnostic.
 
 **Scope**:
-- Fix memory document templates (currently TypeScript-focused, should be generic)
+- ~~Fix memory document templates (TypeScript-focused)~~ ✅ Done
 - Add project type detection to customize templates (bash, node, python, etc.)
 - Add `--safe` flag to scaffold for non-destructive mode
-- Improve slash command vs CLI confusion (better error messages done, need docs)
+- ~~Improve slash command vs CLI confusion~~ ✅ Done
 - Create onboarding guide in README
 
 **Issues Discovered (2026-01-10)**:
-- Constitution template assumes TypeScript projects
-- Tech-stack template assumes Node.js/TypeScript
-- `speckit analyze` tried as CLI command (slash command confusion)
+- ~~Constitution template assumes TypeScript projects~~ ✅ Fixed
+- ~~Tech-stack template assumes Node.js/TypeScript~~ ✅ Fixed
+- ~~`speckit analyze` tried as CLI command~~ ✅ Fixed
 - Memory init is separate step (could be clearer in scaffold output)
 
 **Deliverables**:
-- `templates/constitution-template.md` - Generic, with tech-specific variants
-- `templates/tech-stack-template.md` - Generic, auto-detect framework
 - `scripts/bash/speckit-scaffold.sh` - Add --safe mode and content detection
 - `README.md` - Onboarding quickstart section
+- Project type detection logic
 
 **Verification Gate**:
 - New user can run `speckit scaffold` without issues
 - Templates match actual project technology
 - No confusion between slash commands and CLI commands
 
-**Estimated Complexity**: Low (mostly documentation and template updates)
+**Estimated Complexity**: Low
 
 ---
 
-### 002 - Test Suite Completion
+### 2030 - Test Suite Completion
 
 **Goal**: All CLI scripts have passing tests on macOS and Linux.
 
@@ -81,11 +130,11 @@
 - `./tests/test-runner.sh` passes all tests
 - Tests pass on both macOS and Linux
 
-**Estimated Complexity**: Medium (debugging POSIX issues, CI setup)
+**Estimated Complexity**: Medium
 
 ---
 
-### 003 - Integration Options
+### 2040 - Integration Options
 
 **Goal**: Support projects with existing documentation.
 
@@ -108,9 +157,7 @@
 
 ---
 
-## Future Phases (004-005)
-
-### 004 - Story-Based Orchestration
+### 2050 - Story-Based Orchestration
 
 **Goal**: Execute user stories independently with MVP checkpoints.
 
@@ -119,6 +166,7 @@
 - Add `speckit tasks next-story` command
 - Parallel story execution where dependencies allow
 - MVP checkpoints between stories
+- Story reordering within phases
 
 **Deliverables**:
 - Updated `commands/speckit.orchestrate.md`
@@ -134,7 +182,7 @@
 
 ---
 
-### 005 - Web UI Dashboard
+### 2060 - Web UI Dashboard
 
 **Goal**: Visual dashboard for multi-project monitoring.
 
@@ -158,12 +206,24 @@
 
 ---
 
+## Backlog
+
+> Uncommitted work. May be promoted to a phase or combined into hotfixes.
+
+| Item | Description | Priority | Notes |
+|------|-------------|----------|-------|
+| Multi-language templates | Auto-detect project type (Python, Rust, Go) and use appropriate templates | Medium | Could be part of 2020 |
+| Parallel phase execution | Run independent phases concurrently | Low | Requires dependency graph |
+| Team collaboration | Multi-user roadmap editing, conflict resolution | Low | Future vision |
+
+---
+
 ## Verification Gates Summary
 
 | Gate | Phase | What User Verifies |
 |------|-------|-------------------|
-| **Gate 1** | 004 | Stories execute independently, MVPs are validated |
-| **Gate 2** | 005 | Dashboard shows projects, real-time updates work |
+| **Gate 1** | 2050 | Stories execute independently, MVPs are validated |
+| **Gate 2** | 2060 | Dashboard shows projects, real-time updates work |
 
 ---
 
@@ -177,8 +237,8 @@ Each phase is designed to be:
 
 If a phase is running long:
 1. Cut scope to MVP for that phase
-2. Document deferred items in `specs/[phase]/checklists/deferred.md`
-3. Update next phase's section with "Deferred from Previous Phases"
+2. Document deferred items in Backlog section above
+3. Create a hotfix phase (e.g., 2021) for critical items
 4. Prioritize verification gate requirements
 
 ---
@@ -191,7 +251,19 @@ If a phase is running long:
 ```
 Or manually:
 ```
-/speckit.specify "Phase NNN - [Phase Name]"
+/speckit.specify "Phase NNNN - [Phase Name]"
+```
+
+### Inserting Urgent Work
+```bash
+speckit roadmap insert --after 2020 "Urgent Bug Fixes"
+# Creates phase 2021
+```
+
+### Deferring Work
+```bash
+speckit roadmap defer 2040 --reason "Deprioritized after user testing"
+# Moves to Backlog section
 ```
 
 ### After Completing a Phase
@@ -201,9 +273,26 @@ Or manually:
 
 ---
 
-## Notes
+## Migration Notes
 
-- v2.0 core functionality is complete (see PROJECT-FINALIZATION.md)
-- All P0 and P1 items are resolved
-- Remaining work is P2 (polish) and P3 (future vision)
-- Web UI requires central registry (already implemented in v2.0)
+### v2.0 → v2.1 Migration
+Existing roadmaps with 001/002/003 numbering should be migrated:
+```bash
+speckit migrate roadmap
+```
+
+Conversion: `0AB` → `M0A0` where M is the current milestone (default: 2)
+- 001 → 2010
+- 002 → 2020
+- 003 → 2030
+
+Branch names remain unchanged (branches use short names, not phase numbers).
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-01-10 | Initial roadmap (v2.0, 001-005 numbering) |
+| 2026-01-10 | Migrated to v2.1 ABBC numbering, added Phase 2010 (Roadmap Flexibility) |
