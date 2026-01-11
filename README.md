@@ -149,7 +149,7 @@ speckit scaffold           # Actually create structure
 
 Memory Management (run periodically):
 /speckit.memory             # Verify and reconcile memory documents
-/speckit.memory-generate    # Generate docs from codebase analysis
+/speckit.memory-init        # Generate docs from codebase analysis
 ```
 
 ## Project Structure
@@ -404,7 +404,7 @@ speckit tasks status --json
 | Command | Description |
 |---------|-------------|
 | `/speckit.memory` | Clean up, verify, and reconcile memory documents |
-| `/speckit.memory-generate` | Generate memory docs from codebase analysis |
+| `/speckit.memory-init` | Generate memory docs from codebase analysis |
 
 ### Utility Commands
 
@@ -450,7 +450,7 @@ speckit tasks status --json
 - `--promote` - Scan completed specs for decisions to promote
 - `--deep` - Full codebase scan
 
-**`/speckit.memory-generate`**
+**`/speckit.memory-init`**
 - `<document>` - Document: `coding-standards`, `testing-strategy`, `glossary`, `tech-stack`, `all`, `recommended`
 - `--force` - Overwrite existing documents
 - `--dry-run` - Preview without writing

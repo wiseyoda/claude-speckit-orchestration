@@ -40,7 +40,6 @@ scripts/bash/
 └── speckit-*.sh            → Other commands
 
 commands/speckit.*.md       → Claude Code slash commands
-commands/archive/           → Deprecated init-*.md files (v1.x)
 commands/utilities/         → Non-core commands (taskstoissues)
 templates/                  → Document templates
 ```
@@ -81,5 +80,8 @@ templates/                  → Document templates
 - **State schema**: New v2.0 with project UUID, health tracking, action history
 - **Central registry**: Projects registered in `~/.speckit/registry.json`
 - **Memory docs**: Only `constitution.md` required; others recommended
-- **Init consolidation**: 12 `init-*.md` files merged into one `init.md`
+- **Init consolidation**: 12 `init-*.md` files deleted (merged into `init.md`)
 - **CLI gaps fixed**: `speckit context`, `speckit feature`, registry commands
+- **Workflow integration**: `speckit gate` (validation gates) and `speckit lessons` (lessons learned) integrated into orchestrate workflow
+- **Memory commands**: `/speckit.memory` (verify/reconcile) and `/speckit.memory-init` (generate from codebase)
+- **Phase completion**: `/speckit.merge` and `/speckit.backlog` for end-of-phase workflows

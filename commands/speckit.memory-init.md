@@ -306,14 +306,14 @@ After generation, display summary:
 
 ```bash
 # Generate all recommended documents
-/speckit.memory-generate recommended
+/speckit.memory-init recommended
 
 # Generate specific document
-/speckit.memory-generate coding-standards
+/speckit.memory-init coding-standards
 
 # Preview without writing
-/speckit.memory-generate all --dry-run
+/speckit.memory-init all --dry-run
 
 # Force overwrite
-/speckit.memory-generate glossary --force
+/speckit.memory-init glossary --force
 ```

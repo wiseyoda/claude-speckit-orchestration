@@ -151,6 +151,9 @@ Handle `[NEEDS CLARIFICATION]` markers (max 3):
 ```bash
 # Verify spec.md was created
 ls specs/*/spec.md || { echo "ERROR: spec.md not created"; exit 1; }
+
+# Run specification gate check
+speckit gate specify || { echo "WARN: Gate check found issues"; }
 ```
 
 Update state (only after verification passes):
@@ -208,6 +211,9 @@ Cross-check against memory documents:
 ```bash
 # Verify plan.md was created
 ls specs/*/plan.md || { echo "ERROR: plan.md not created"; exit 1; }
+
+# Run plan gate check
+speckit gate plan || { echo "WARN: Gate check found issues"; }
 ```
 
 Update state (only after verification passes):
@@ -232,6 +238,9 @@ Execute `/speckit.tasks` logic:
 ```bash
 # Verify tasks.md was created
 ls specs/*/tasks.md || { echo "ERROR: tasks.md not created"; exit 1; }
+
+# Run tasks gate check
+speckit gate tasks || { echo "WARN: Gate check found issues"; }
 ```
 
 Update state (only after verification passes):
@@ -324,6 +333,11 @@ speckit tasks status --json
 ```
 If completed == total → skip to VERIFY.
 
+**Initialize lessons tracking (if not exists):**
+```bash
+speckit lessons init          # Create lessons-learned.md for this phase
+```
+
 Execute `/speckit.implement` logic:
 1. Verify/create ignore files
 2. Parse task phases and dependencies
@@ -344,11 +358,18 @@ Error recovery:
 1. Log error, attempt 1 retry with different approach
 2. If still fails: Mark blocked, continue with non-dependent tasks
 3. If critical path blocked: Halt, report, mark "blocked"
+4. **Record significant errors to lessons:**
+   ```bash
+   speckit lessons add error "Brief description of error"
+   ```
 
 **VERIFY BEFORE ADVANCING:**
 ```bash
 # Verify all tasks are complete
 speckit tasks status --json | grep -q '"incomplete": 0' || { echo "ERROR: Not all tasks complete"; exit 1; }
+
+# Run implement gate check (verifies tests pass if configured)
+speckit gate implement || { echo "WARN: Gate check found issues"; }
 ```
 
 Update state (only after verification passes):
@@ -361,11 +382,20 @@ speckit state set "orchestration.step.index=7"
 
 ### 9. VERIFY
 
+**Capture lessons learned before verification:**
+```bash
+# Review and add any significant decisions or gotchas
+speckit lessons add decision "Chose X over Y because..."  # Architecture choices
+speckit lessons add gotcha "Technology" "Issue" "Workaround"  # Platform quirks
+speckit lessons list                                        # Review captured lessons
+```
+
 Execute `/speckit.verify` logic:
 1. Task completion verification
 2. Memory document compliance check
 3. Checklist verification
 4. Deferred items identification
+5. Lessons learned review (prompt to add if lessons-learned.md is sparse)
 
 **USER GATE Phases**:
 

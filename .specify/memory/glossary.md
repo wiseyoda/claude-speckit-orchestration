@@ -11,7 +11,7 @@
 | Term | Definition |
 |------|------------|
 | **SDD** | Spec-Driven Development - methodology prioritizing specification before implementation |
-| **Phase** | A discrete feature/deliverable in the roadmap, numbered sequentially (001, 002) |
+| **Phase** | A discrete feature/deliverable in the roadmap, numbered using ABBC format (0010, 0020, 0021) |
 | **Orchestration** | Automated execution of the full SpecKit workflow (specify → verify) |
 | **Memory Documents** | Project-level docs capturing decisions and principles in `.specify/memory/` |
 | **Discovery** | Requirements gathering phase using structured interviews |
@@ -81,20 +81,30 @@
 | `/speckit.init` | Requirements interview |
 | `/speckit.orchestrate` | Full automated workflow |
 | `/speckit.specify` | Create specification |
+| `/speckit.clarify` | Resolve spec ambiguities |
 | `/speckit.plan` | Create technical plan |
 | `/speckit.tasks` | Generate task list |
+| `/speckit.analyze` | Cross-artifact consistency |
+| `/speckit.checklist` | Create verification checklist |
+| `/speckit.implement` | Execute tasks |
 | `/speckit.verify` | Verify completion |
-| `/speckit.memory` | Manage memory docs |
+| `/speckit.merge` | Complete phase (push, PR, merge) |
+| `/speckit.backlog` | Triage backlog items |
+| `/speckit.memory` | Verify/reconcile memory docs |
+| `/speckit.memory-init` | Generate memory docs from codebase |
 
 ### CLI Commands (Terminal)
 | Command | Purpose |
 |---------|---------|
 | `speckit scaffold` | Create project structure |
 | `speckit state` | State management |
-| `speckit roadmap` | ROADMAP operations |
-| `speckit tasks` | Task operations |
+| `speckit roadmap` | ROADMAP operations (status, insert, defer, restore) |
+| `speckit tasks` | Task operations (mark, status) |
 | `speckit context` | Show project context |
 | `speckit doctor` | Run diagnostics |
+| `speckit gate` | Validation gates (specify, plan, tasks, implement) |
+| `speckit lessons` | Lessons learned tracking |
+| `speckit memory` | Memory document operations |
 
 ---
 
@@ -124,9 +134,9 @@ specs/
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Branch | `NNN-kebab-case` | `001-user-auth` |
-| Spec directory | `specs/NNN-name/` | `specs/001-setup/` |
-| Phase number | 3 digits | `001`, `002`, `003` |
+| Branch | `NNNN-kebab-case` | `0010-user-auth` |
+| Spec directory | `specs/NNNN-name/` | `specs/0010-setup/` |
+| Phase number | 4-digit ABBC format | `0010`, `0020`, `0021` |
 
 ---
 

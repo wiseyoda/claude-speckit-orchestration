@@ -1,69 +1,82 @@
 # SpecKit Command Audit
 
-> Generated during v2.0 refactoring - Phase 0
+> Updated during v2.0+ maintenance - reflects current command state
 
 ## CLI Commands (bin/speckit)
 
 | Command | Script | Status | Notes |
 |---------|--------|--------|-------|
-| `state` | speckit-state.sh | Implemented | Full CRUD operations |
-| `scaffold` | speckit-scaffold.sh | Implemented | Project structure creation |
-| `git` | speckit-git.sh | Implemented | Branch, commit, merge, push |
-| `roadmap` | speckit-roadmap.sh | Partial | `update` needs work |
-| `claude-md` | speckit-claude-md.sh | Implemented | Update and sync |
-| `checklist` | speckit-checklist.sh | Implemented | Status, list, incomplete |
-| `tasks` | speckit-tasks.sh | Partial | `mark` needs verification |
-| `templates` | speckit-templates.sh | Implemented | Check, update, diff |
-| `doctor` | speckit-doctor.sh | Implemented | Diagnostics, auto-fix |
-| `detect` | speckit-detect.sh | Implemented | Content detection |
-| `reconcile` | speckit-reconcile.sh | Implemented | State/file sync |
-
-## Missing CLI Commands (P0)
-
-| Command | Purpose | Priority |
-|---------|---------|----------|
-| `context` | Get current feature context (replace check-prerequisites.sh) | P0 |
-| `feature create` | Create new feature structure | P0 |
-
-## Broken Scripts
-
-| Script | Issue |
-|--------|-------|
-| `check-prerequisites.sh` | References undefined functions: `get_feature_paths`, `check_feature_branch`, `check_file`, `check_dir`. Sources `common.sh` from wrong path. |
+| `state` | speckit-state.sh | ✅ Implemented | Full CRUD operations |
+| `scaffold` | speckit-scaffold.sh | ✅ Implemented | Project structure creation |
+| `context` | speckit-context.sh | ✅ Implemented | Project context (replaced check-prerequisites.sh) |
+| `feature` | speckit-feature.sh | ✅ Implemented | Feature management |
+| `git` | speckit-git.sh | ✅ Implemented | Branch, commit, merge, push |
+| `roadmap` | speckit-roadmap.sh | ✅ Implemented | Status, update, insert, defer, restore, backlog |
+| `claude-md` | speckit-claude-md.sh | ✅ Implemented | Update and sync |
+| `checklist` | speckit-checklist.sh | ✅ Implemented | Status, list, incomplete |
+| `tasks` | speckit-tasks.sh | ✅ Implemented | Mark, status, list |
+| `templates` | speckit-templates.sh | ✅ Implemented | Check, update, diff |
+| `doctor` | speckit-doctor.sh | ✅ Implemented | Diagnostics, auto-fix |
+| `detect` | speckit-detect.sh | ✅ Implemented | Content detection |
+| `reconcile` | speckit-reconcile.sh | ✅ Implemented | State/file sync |
+| `memory` | speckit-memory.sh | ✅ Implemented | Memory document operations |
+| `gate` | speckit-gate.sh | ✅ Implemented | Validation gates (specify, plan, tasks, implement) |
+| `lessons` | speckit-lessons.sh | ✅ Implemented | Lessons learned tracking |
+| `migrate` | speckit-migrate.sh | ✅ Implemented | ROADMAP format migration |
+| `manifest` | speckit-manifest.sh | ✅ Implemented | Version manifest operations |
 
 ## Claude Commands (commands/*.md)
 
-### Core Workflow (Keep)
-- `speckit.start.md` - Smart entry point
-- `speckit.init.md` - Project initialization
-- `speckit.constitution.md` - Constitution editing
-- `speckit.roadmap.md` - ROADMAP management
-- `speckit.orchestrate.md` - Workflow runner
-- `speckit.specify.md` - Create specification
-- `speckit.plan.md` - Create plan
-- `speckit.tasks.md` - Generate tasks
-- `speckit.implement.md` - Execute tasks
-- `speckit.verify.md` - Verify completion
-- `speckit.memory.md` - Memory management
-- `speckit.analyze.md` - Cross-artifact analysis
+### Core Workflow
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `/speckit.start` | Smart entry point | ✅ Active |
+| `/speckit.init` | Project initialization (unified interview) | ✅ Active |
+| `/speckit.orchestrate` | Full workflow automation | ✅ Active |
+| `/speckit.specify` | Create feature specification | ✅ Active |
+| `/speckit.clarify` | Resolve specification ambiguities | ✅ Active |
+| `/speckit.plan` | Create technical implementation plan | ✅ Active |
+| `/speckit.tasks` | Generate actionable task list | ✅ Active |
+| `/speckit.analyze` | Cross-artifact consistency check | ✅ Active |
+| `/speckit.checklist` | Create verification checklist | ✅ Active |
+| `/speckit.implement` | Execute all tasks | ✅ Active |
+| `/speckit.verify` | Verify completion and update ROADMAP | ✅ Active |
 
-### Init Sub-commands (Merge into speckit.init.md)
-- `speckit.init-status.md` - Show progress
-- `speckit.init-skip.md` - Skip phase
-- `speckit.init-pause.md` - Pause interview
-- `speckit.init-validate.md` - Validate interview
-- `speckit.init-export.md` - Export to memory
-- `speckit.init-compare.md` - Compare options
-- `speckit.init-deeper.md` - Go deeper
-- `speckit.init-faster.md` - Go faster
-- `speckit.init-focus.md` - Focus on topic
-- `speckit.init-research.md` - Research topic
-- `speckit.init-revisit.md` - Revisit phase
+### Phase Completion
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `/speckit.merge` | Complete phase: push, PR, merge, cleanup | ✅ Active |
+| `/speckit.backlog` | Triage backlog items into phases | ✅ Active |
 
-### To Merge/Remove
-- `speckit.clarify.md` - Merge into specify
-- `speckit.checklist.md` - Merge into verify
-- `speckit.taskstoissues.md` - Move to utilities
+### Memory & Configuration
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `/speckit.constitution` | Create/update project constitution | ✅ Active |
+| `/speckit.roadmap` | Create/update ROADMAP.md | ✅ Active |
+| `/speckit.memory` | Verify and reconcile memory documents | ✅ Active |
+| `/speckit.memory-init` | Generate memory docs from codebase analysis | ✅ Active |
+
+### Utilities
+| Command | Purpose | Status |
+|---------|---------|--------|
+| `/speckit.taskstoissues` | Convert tasks to GitHub issues | ✅ Active (utilities/) |
+
+## Archived Commands
+
+The following were consolidated into `/speckit.init` (v2.0):
+- ~~`speckit.init-status`~~ → `/speckit.init status`
+- ~~`speckit.init-skip`~~ → `/speckit.init skip`
+- ~~`speckit.init-pause`~~ → `/speckit.init pause`
+- ~~`speckit.init-validate`~~ → `/speckit.init validate`
+- ~~`speckit.init-export`~~ → `/speckit.init export`
+- ~~`speckit.init-compare`~~ → `/speckit.init compare`
+- ~~`speckit.init-deeper`~~ → `/speckit.init deeper`
+- ~~`speckit.init-faster`~~ → `/speckit.init faster`
+- ~~`speckit.init-focus`~~ → `/speckit.init focus`
+- ~~`speckit.init-research`~~ → `/speckit.init research`
+- ~~`speckit.init-revisit`~~ → `/speckit.init revisit`
+
+These files have been **deleted** from `commands/archive/` as of v2.0 cleanup.
 
 ## Scripts Library
 
@@ -78,26 +91,3 @@ Provides:
 ### lib/json.sh
 Provides:
 - JSON operations via jq wrappers
-
-## Action Items for Phase 1
-
-1. **Create `speckit context`** - Replace check-prerequisites.sh
-   - Detect current branch pattern (NNN-feature-name)
-   - Find feature directory in specs/
-   - Return available docs
-   - JSON output support
-
-2. **Create `speckit feature create`** - New feature scaffolding
-   - Create specs/NNN-feature-name/
-   - Initialize empty spec.md from template
-   - Update state file
-
-3. **Fix/verify `speckit roadmap update`**
-   - Ensure phase status updates work
-   - JSON output
-
-4. **Fix/verify `speckit tasks mark`**
-   - Ensure task completion works
-   - State file updates
-
-5. **Delete check-prerequisites.sh** after context command works
