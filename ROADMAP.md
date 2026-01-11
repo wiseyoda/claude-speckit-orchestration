@@ -30,7 +30,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 | Phase | Name | Status | Verification Gate |
 |-------|------|--------|-------------------|
-| 0010 | Roadmap Flexibility | ✅ In Progress | Insert/defer commands work |
+| 0010 | Roadmap Flexibility | ✅ Complete | Insert/defer commands work |
 | 0020 | Onboarding Polish | ⬜ Not Started | New user can set up without confusion |
 | 0030 | Test Suite Completion | ⬜ Not Started | All tests pass on macOS and Linux |
 | 0040 | Integration Options | ⬜ Not Started | Existing docs imported successfully |
@@ -85,6 +85,7 @@ This allows inserting urgent work without renumbering existing phases.
 - Add `--safe` flag to scaffold for non-destructive mode
 - ~~Improve slash command vs CLI confusion~~ ✅ Done
 - Create onboarding guide in README
+- Optimize CLI output for 3-line preview (user-critical info first, system details below)
 
 **Issues Discovered (2026-01-10)**:
 - ~~Constitution template assumes TypeScript projects~~ ✅ Fixed
