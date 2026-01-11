@@ -218,6 +218,7 @@ This allows inserting urgent work without renumbering existing phases.
 | Item | Description | Priority | Notes |
 |------|-------------|----------|-------|
 | `/speckit.merge` command | One command to: push, merge to main, cleanup branches, update state/roadmap | High | Common end-of-phase workflow |
+| `/speckit.backlog` command | Intelligent backlog triage: assess each item against phases, auto-assign to best fit, analyze unassignable items, create new phases for remaining work | High | Continuous workflow support |
 | Multi-language templates | Auto-detect project type (Python, Rust, Go) and use appropriate templates | Medium | Could be part of 0020 |
 | Parallel phase execution | Run independent phases concurrently | Low | Requires dependency graph |
 | Team collaboration | Multi-user roadmap editing, conflict resolution | Low | Future vision |
