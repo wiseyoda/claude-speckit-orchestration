@@ -36,7 +36,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 0030 | Test Suite Completion | ✅ Complete | All tests pass on macOS and Linux |
 | 0040 | Integration Options | ✅ Complete | Existing docs imported successfully |
 | 0041 | Code Review Findings | ✅ Complete | All review findings addressed |
-| 0042 | Code Review 2026-01-11 | 🔄 Not Started | 18 findings addressed |
+| 0042 | Code Review 2026-01-11 | ✅ Complete | 18 findings addressed |
 | 0050 | UX Simplification | ⬜ Not Started | Single entry point, clean codebase, unified memory |
 | 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
@@ -269,6 +269,7 @@ This allows inserting urgent work without renumbering existing phases.
 
 **Source PDRs**:
 - `pdr-ux-simplification.md` - SpecKit UX Simplification
+- `pdr-ui-design-artifacts.md` - UI/UX Design Documentation
 
 **Scope**:
 - Delete orphaned scripts from `.specify/scripts/bash/`
@@ -277,6 +278,7 @@ This allows inserting urgent work without renumbering existing phases.
 - Consolidate `/speckit.memory` and `/speckit.memory-init` into unified command
 - Simplify state tracking to derive step completion from filesystem artifacts
 - Update all handoffs to point to `/speckit.start`
+- Add UI/UX design artifact generation to `/speckit.specify` and `/speckit.plan`
 
 **User Stories**:
 1. Single Entry Point: Users always start with `/speckit.start` and get routed correctly
@@ -284,6 +286,7 @@ This allows inserting urgent work without renumbering existing phases.
 3. Unified Memory Management: One command (`/speckit.memory`) with clear subcommands
 4. Clean Codebase: Only active, used code in the repository
 5. Filesystem-Derived State: SpecKit figures out where you are from files
+6. UI Design Documentation: Visual UI phases auto-generate design.md with before/after mockups
 
 **Deliverables**:
 
@@ -300,6 +303,12 @@ This allows inserting urgent work without renumbering existing phases.
 - Update `docs/` folder (8 files): cli-reference, slash-commands, integration-guide, project-structure, configuration, troubleshooting, templates, COMMAND-AUDIT
 - Update `bin/speckit` help text to recommend `/speckit.start`
 - Update slash command handoffs (10 commands) to point to `/speckit.start`
+
+*UI/UX Design Artifacts*:
+- Update `commands/speckit.specify.md` - Add UI detection and design.md generation
+- Update `commands/speckit.plan.md` - Add UI design verification
+- Create `templates/ui-design-template.md` - Template for design.md
+- Create `specs/XXXX/ui/design.md` structure (auto-generated for UI phases)
 
 **Constraints** (from PDR):
 - Must preserve all existing functionality
@@ -320,8 +329,9 @@ This allows inserting urgent work without renumbering existing phases.
 - `/speckit.memory generate` works (replaces memory-init)
 - Documentation recommends `/speckit.start` as primary entry
 - `speckit status --json` derives step completion from artifacts
+- UI phases auto-generate `ui/design.md` with before/after/rationale sections
 
-**Estimated Complexity**: Medium (5 stories, mostly deletions and documentation)
+**Estimated Complexity**: Medium (6 stories, deletions + documentation + specify/plan updates)
 
 ---
 
@@ -450,3 +460,4 @@ Branch names remain unchanged (branches use short names, not phase numbers).
 | 2026-01-11 | Added Phase 0042 (Code Review 2026-01-11) - 18 findings from /speckit.review |
 | 2026-01-11 | Added modular ROADMAP: speckit phase, speckit issue, speckit roadmap renumber, /speckit.merge auto-archive |
 | 2026-01-11 | Added Phase 0050 (UX Simplification) from pdr-ux-simplification.md |
+| 2026-01-11 | Added UI Design Artifacts to Phase 0050 from pdr-ui-design-artifacts.md |
