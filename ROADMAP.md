@@ -279,6 +279,7 @@ This allows inserting urgent work without renumbering existing phases.
 - Simplify state tracking to derive step completion from filesystem artifacts
 - Update all handoffs to point to `/speckit.start`
 - Add UI/UX design artifact generation to `/speckit.specify` and `/speckit.plan`
+- Split CLAUDE.md: minimal pointer in CLAUDE.md + detailed `.specify/USAGE.md`
 
 **User Stories**:
 1. Single Entry Point: Users always start with `/speckit.start` and get routed correctly
@@ -287,6 +288,7 @@ This allows inserting urgent work without renumbering existing phases.
 4. Clean Codebase: Only active, used code in the repository
 5. Filesystem-Derived State: SpecKit figures out where you are from files
 6. UI Design Documentation: Visual UI phases auto-generate design.md with before/after mockups
+7. Minimal CLAUDE.md: SpecKit adds ~10 lines to CLAUDE.md with pointer to detailed `.specify/USAGE.md`
 
 **Deliverables**:
 
@@ -299,7 +301,9 @@ This allows inserting urgent work without renumbering existing phases.
 
 *Documentation (comprehensive)*:
 - Update `README.md` - Recommend `/speckit.start` as THE entry point
-- Update `CLAUDE.md` - CLI reference, remove /speckit.issue
+- Update `CLAUDE.md` - Minimal SpecKit section (~10 lines) with pointer to `.specify/USAGE.md`
+- Create `.specify/USAGE.md` - Full CLI reference, syntax notes, common patterns
+- Update `speckit claude-md merge` to use minimal approach
 - Update `docs/` folder (8 files): cli-reference, slash-commands, integration-guide, project-structure, configuration, troubleshooting, templates, COMMAND-AUDIT
 - Update `bin/speckit` help text to recommend `/speckit.start`
 - Update slash command handoffs (10 commands) to point to `/speckit.start`
@@ -330,8 +334,9 @@ This allows inserting urgent work without renumbering existing phases.
 - Documentation recommends `/speckit.start` as primary entry
 - `speckit status --json` derives step completion from artifacts
 - UI phases auto-generate `ui/design.md` with before/after/rationale sections
+- CLAUDE.md SpecKit section ≤15 lines, `.specify/USAGE.md` exists with full reference
 
-**Estimated Complexity**: Medium (6 stories, deletions + documentation + specify/plan updates)
+**Estimated Complexity**: Medium (7 stories, deletions + documentation + specify/plan updates)
 
 ---
 
