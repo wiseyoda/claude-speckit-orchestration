@@ -62,6 +62,11 @@ COMMANDS:
                         Use --after to specify position
                         Use --as to specify exact number
 
+    backlog <action>    Manage backlog items
+                        add "<item>" - Add item to backlog
+                        list - Show all backlog items
+                        clear - Remove all backlog items
+
     validate            Check ROADMAP.md structure and consistency
 
     path                Show path to ROADMAP.md
@@ -273,13 +278,13 @@ parse_phase_table() {
   roadmap_path="$(get_roadmap_path)"
 
   # Extract table rows (lines starting with | followed by 3-4 digit number)
-  grep -E '^\|\s*[0-9]{3,4}\s*\|' "$roadmap_path" 2>/dev/null | while IFS='|' read -r _ phase_num name status gate _; do
+  grep -E '^\|[[:space:]]*[0-9]{3,4}[[:space:]]*\|' "$roadmap_path" 2>/dev/null | while IFS='|' read -r _ phase_num name status gate _; do
     phase_num=$(echo "$phase_num" | tr -d ' ')
-    name=$(echo "$name" | tr -d ' ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    name=$(echo "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')  # Trim only, preserve internal spaces
     status=$(echo "$status" | tr -d ' ')
     gate=$(echo "$gate" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-    # Get actual name (may have spaces)
+    # Clean up name (remove brackets if present)
     name=$(echo "$name" | sed 's/\[//g;s/\]//g')
 
     local status_str
@@ -360,12 +365,19 @@ cmd_update() {
   emoji=$(status_to_emoji "$new_status")
 
   # Check if phase exists (support both 3 and 4 digit)
-  if ! grep -qE "^\|\s*${phase}\s*\|" "$roadmap_path"; then
-    # Try 3-digit format for backwards compatibility
-    local phase3
-    phase3=$(printf "%03d" "$((10#${phase} / 10))" 2>/dev/null || echo "")
-    if grep -qE "^\|\s*${phase3}\s*\|" "$roadmap_path"; then
-      phase="$phase3"
+  if ! grep -qE "^\|[[:space:]]*${phase}[[:space:]]*\|" "$roadmap_path"; then
+    # Try 3-digit format for backwards compatibility (v2.0 -> v2.1)
+    # Only works for "main" phases that are multiples of 10 (0010 -> 001, 0020 -> 002)
+    local phase_num=$((10#${phase}))
+    if [[ $((phase_num % 10)) -eq 0 ]]; then
+      local phase3
+      phase3=$(printf "%03d" "$((phase_num / 10))" 2>/dev/null || echo "")
+      if grep -qE "^\|[[:space:]]*${phase3}[[:space:]]*\|" "$roadmap_path"; then
+        phase="$phase3"
+      else
+        log_error "Phase not found: $phase"
+        exit 1
+      fi
     else
       log_error "Phase not found: $phase"
       exit 1
@@ -1032,6 +1044,312 @@ cmd_restore() {
 }
 
 # =============================================================================
+# Backlog Commands
+# =============================================================================
+
+# Helper: Escape special characters for sed replacement
+escape_for_sed() {
+  printf '%s\n' "$1" | sed 's/[&/\]/\\&/g'
+}
+
+# Helper: Get today's date in YYYY-MM-DD format
+today_date() {
+  date +%Y-%m-%d
+}
+
+# Backlog subcommand dispatcher
+cmd_backlog() {
+  if [[ $# -eq 0 ]]; then
+    cmd_backlog_help
+    exit 0
+  fi
+
+  local action="$1"
+  shift
+
+  case "$action" in
+    add)
+      cmd_backlog_add "$@"
+      ;;
+    list|ls)
+      cmd_backlog_list
+      ;;
+    clear)
+      cmd_backlog_clear
+      ;;
+    help|--help|-h)
+      cmd_backlog_help
+      exit 0
+      ;;
+    *)
+      log_error "Unknown backlog action: $action"
+      echo "Run 'speckit roadmap backlog help' for usage"
+      exit 1
+      ;;
+  esac
+}
+
+cmd_backlog_help() {
+  cat << 'EOF'
+speckit roadmap backlog - Manage ROADMAP.md backlog items
+
+USAGE:
+    speckit roadmap backlog <action> [options]
+
+ACTIONS:
+    add "<item>"        Add an item to the backlog
+    list, ls            List all backlog items
+    clear               Remove all backlog items (use after triage)
+
+OPTIONS:
+    --json              Output in JSON format
+    -h, --help          Show this help
+
+EXAMPLES:
+    speckit roadmap backlog add "Add dark mode support"
+    speckit roadmap backlog add "Improve error messages"
+    speckit roadmap backlog list
+    speckit roadmap backlog clear
+EOF
+}
+
+cmd_backlog_add() {
+  if [[ $# -eq 0 ]]; then
+    log_error "Item text required"
+    echo "Usage: speckit roadmap backlog add \"<item>\""
+    exit 1
+  fi
+
+  local item="$*"
+
+  ensure_roadmap
+  local roadmap_path
+  roadmap_path="$(get_roadmap_path)"
+
+  local today
+  today=$(today_date)
+
+  # Create temp file for atomic update
+  local temp_file
+  temp_file=$(mktemp)
+  cp "$roadmap_path" "$temp_file"
+
+  # Check if Backlog section exists
+  if ! grep -q "^## Backlog" "$temp_file"; then
+    # Add Backlog section at the end
+    cat >> "$temp_file" << 'EOF'
+
+---
+
+## Backlog
+
+Items captured for future triage. Run `/speckit.backlog` to assign to phases.
+
+| Item | Description | Priority | Notes |
+|------|-------------|----------|-------|
+EOF
+  fi
+
+  # Escape the item for sed
+  local escaped_item
+  escaped_item=$(escape_for_sed "$item")
+
+  # Append item to backlog table (supports both table formats)
+  # Format 1: | Item | Description | Priority | Notes |
+  # Format 2: | Added | Item | Priority | Notes |
+  awk -v date="$today" -v item="$escaped_item" '
+    # Match the table header (either format)
+    /^\|[[:space:]]*(Item|Added)[[:space:]]*\|/ && /Backlog/ == 0 {
+      if (in_backlog) {
+        in_backlog_table = 1
+        print
+        getline  # Print separator row
+        print
+        # Add new row based on format
+        if (/Added/) {
+          printf "| %s | %s | - | |\n", date, item
+        } else {
+          printf "| %s | Added %s | - | |\n", item, date
+        }
+        next
+      }
+    }
+    /^##[[:space:]]*Backlog/ { in_backlog = 1 }
+    /^##[[:space:]]/ && !/Backlog/ { in_backlog = 0 }
+
+    # Handle table right after detecting backlog section
+    in_backlog && /^\|[[:space:]]*(Item|Added)[[:space:]]*\|/ {
+      in_backlog_table = 1
+      print
+      getline  # Print separator row
+      print
+      # Add new row - detect format from header
+      if ($0 ~ /Added/) {
+        printf "| %s | %s | - | |\n", date, item
+      } else {
+        printf "| %s | Added %s | - | |\n", item, date
+      }
+      next
+    }
+    { print }
+  ' "$temp_file" > "${temp_file}.2"
+
+  mv "${temp_file}.2" "$roadmap_path"
+  rm -f "$temp_file"
+
+  log_success "Added to backlog: $item"
+
+  if is_json_output; then
+    # Escape for JSON
+    local json_item
+    json_item=$(printf '%s' "$item" | jq -R .)
+    echo "{\"added\": true, \"item\": $json_item, \"date\": \"$today\"}"
+  fi
+}
+
+cmd_backlog_list() {
+  ensure_roadmap
+  local roadmap_path
+  roadmap_path="$(get_roadmap_path)"
+
+  # Check if Backlog section exists
+  if ! grep -q "^## Backlog" "$roadmap_path"; then
+    if is_json_output; then
+      echo '{"items": [], "count": 0}'
+    else
+      log_info "No backlog section found"
+    fi
+    exit 0
+  fi
+
+  # Extract items from backlog table (supports both table formats)
+  local items=()
+  local in_backlog=false
+  local header_passed=false
+
+  while IFS= read -r line; do
+    # Start capturing after Backlog header
+    if [[ "$line" =~ ^##[[:space:]]*Backlog ]]; then
+      in_backlog=true
+      continue
+    fi
+
+    # Stop at next section
+    if $in_backlog && [[ "$line" =~ ^##[[:space:]] ]]; then
+      break
+    fi
+
+    # Skip until we hit the table header (either format)
+    if $in_backlog && [[ "$line" =~ ^\|[[:space:]]*(Item|Added)[[:space:]]*\| ]]; then
+      header_passed=true
+      continue
+    fi
+
+    # Skip separator row
+    if $header_passed && [[ "$line" =~ ^\|[-]+\| ]]; then
+      continue
+    fi
+
+    # Capture table rows
+    if $header_passed && [[ "$line" =~ ^\| ]]; then
+      items+=("$line")
+    fi
+  done < "$roadmap_path"
+
+  if is_json_output; then
+    local json_items="[]"
+    for item_line in "${items[@]}"; do
+      # Parse: | item | description | priority | notes |
+      local item description priority notes
+      item=$(echo "$item_line" | cut -d'|' -f2 | xargs)
+      description=$(echo "$item_line" | cut -d'|' -f3 | xargs)
+      priority=$(echo "$item_line" | cut -d'|' -f4 | xargs)
+      notes=$(echo "$item_line" | cut -d'|' -f5 | xargs)
+
+      json_items=$(echo "$json_items" | jq --arg i "$item" --arg d "$description" --arg p "$priority" --arg n "$notes" \
+        '. + [{"item": $i, "description": $d, "priority": $p, "notes": $n}]')
+    done
+    echo "$json_items" | jq "{items: ., count: (. | length)}"
+  else
+    if [[ ${#items[@]} -eq 0 ]]; then
+      log_info "Backlog is empty"
+    else
+      print_header "Backlog Items"
+      echo ""
+      for item_line in "${items[@]}"; do
+        local item
+        item=$(echo "$item_line" | cut -d'|' -f2 | xargs)
+        local priority
+        priority=$(echo "$item_line" | cut -d'|' -f4 | xargs)
+        if [[ "$priority" != "-" && -n "$priority" ]]; then
+          echo "  • [$priority] $item"
+        else
+          echo "  • $item"
+        fi
+      done
+      echo ""
+      echo "Total: ${#items[@]} item(s)"
+    fi
+  fi
+}
+
+cmd_backlog_clear() {
+  ensure_roadmap
+  local roadmap_path
+  roadmap_path="$(get_roadmap_path)"
+
+  # Check if Backlog section exists
+  if ! grep -q "^## Backlog" "$roadmap_path"; then
+    log_info "No backlog section to clear"
+    if is_json_output; then
+      echo '{"cleared": false, "reason": "no_backlog_section"}'
+    fi
+    exit 0
+  fi
+
+  # Count items before clearing
+  local count
+  count=$(grep -cE '^\|[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}' "$roadmap_path" 2>/dev/null || echo "0")
+
+  # Create temp file
+  local temp_file
+  temp_file=$(mktemp)
+
+  # Remove all data rows from backlog table, keep header
+  awk '
+    /^##[[:space:]]*Backlog/ { in_backlog = 1 }
+    /^##[[:space:]]/ && !/^##[[:space:]]*Backlog/ { in_backlog = 0 }
+
+    # In backlog section
+    in_backlog {
+      # Keep section header, description, and table header
+      if (/^##/ || /^Items captured/ || /^\|[[:space:]]*Added/ || /^\|[-]+/) {
+        print
+        next
+      }
+      # Skip data rows (date pattern)
+      if (/^\|[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}/) {
+        next
+      }
+      # Keep empty lines and other content
+      print
+      next
+    }
+
+    # Outside backlog
+    { print }
+  ' "$roadmap_path" > "$temp_file"
+
+  mv "$temp_file" "$roadmap_path"
+
+  log_success "Cleared $count item(s) from backlog"
+
+  if is_json_output; then
+    echo "{\"cleared\": true, \"count\": $count}"
+  fi
+}
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -1068,6 +1386,9 @@ main() {
       ;;
     restore)
       cmd_restore "$@"
+      ;;
+    backlog)
+      cmd_backlog "$@"
       ;;
     validate)
       cmd_validate
