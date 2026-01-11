@@ -1,6 +1,6 @@
 # SpecKit - Spec-Driven Development for Claude Code
 
-[![Test Suite](https://github.com/YOUR_USERNAME/claude-speckit-orchestration/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/claude-speckit-orchestration/actions/workflows/test.yml)
+[![Test Suite](https://github.com/wiseyoda/claude-speckit-orchestration/actions/workflows/test.yml/badge.svg)](https://github.com/wiseyoda/claude-speckit-orchestration/actions/workflows/test.yml)
 
 > **Version 2.0** - Simplified architecture with web UI support
 
@@ -26,7 +26,7 @@ SpecKit is a comprehensive framework for spec-driven development (SDD) that inte
 ### Quick Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-speckit-orchestration.git
+git clone https://github.com/wiseyoda/claude-speckit-orchestration.git
 cd claude-speckit-orchestration
 ./install.sh
 ```
@@ -60,7 +60,7 @@ git pull
 ### 1. Install SpecKit
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-speckit-orchestration.git
+git clone https://github.com/wiseyoda/claude-speckit-orchestration.git
 cd claude-speckit-orchestration
 ./install.sh
 export PATH="$HOME/.claude/speckit-system/bin:$PATH"  # Add to .bashrc/.zshrc
@@ -185,6 +185,57 @@ your-project/
 ```
 
 > **Note**: Only `constitution.md` is required. Other memory documents are generated on demand based on project needs.
+
+## Customizing Templates
+
+SpecKit templates can be customized at two levels:
+
+### Project-Level Templates
+
+Copy templates to your project's `.specify/templates/` directory to customize them:
+
+```bash
+# List available templates
+speckit templates list
+
+# Copy a template to your project for customization
+speckit templates copy spec-template.md
+
+# Check for upstream updates
+speckit templates check
+```
+
+Templates in `.specify/templates/` override system defaults.
+
+### System-Level Templates
+
+System templates live in `~/.claude/speckit-system/templates/`:
+
+```
+templates/
+├── spec-template.md          # Feature specification template
+├── plan-template.md          # Implementation plan template
+├── tasks-template.md         # Task breakdown template
+├── checklist-template.md     # Verification checklist template
+├── roadmap-template.md       # Project roadmap template
+├── review-template.md        # Code review template
+└── memory/                   # Memory document templates
+    ├── constitution.md
+    ├── tech-stack.md
+    └── ...
+```
+
+### Template Variables
+
+Templates support these variables (replaced during generation):
+
+| Variable | Description |
+|----------|-------------|
+| `{{PHASE_NUMBER}}` | Current phase number (e.g., 0041) |
+| `{{PHASE_NAME}}` | Phase name (e.g., "Code Review Findings") |
+| `{{DATE}}` | Current date (YYYY-MM-DD) |
+| `{{PROJECT_NAME}}` | Project name from state |
+| `{{PROJECT_TYPE}}` | Detected project type (typescript, python, etc.) |
 
 ## CLI Reference
 

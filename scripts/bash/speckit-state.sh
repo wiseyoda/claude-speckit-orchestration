@@ -608,8 +608,6 @@ cmd_registry() {
         exit 0
       fi
 
-      local temp_file
-      temp_file=$(mktemp)
       local removed=0
 
       # Keep only projects where path exists
@@ -620,11 +618,7 @@ cmd_registry() {
         fi
       done
 
-      jq 'reduce (.projects | to_entries[]) as $e (.;
-        if ($e.value.path | . as $p | (["test", "-d", $p] | debug | false)) then .projects |= del(.[$e.key]) else . end
-      )' "$SPECKIT_REGISTRY" > "$temp_file" 2>/dev/null || cp "$SPECKIT_REGISTRY" "$temp_file"
-
-      # Simpler approach - check each path
+      # Check each path and rebuild registry without stale entries
       local final_file
       final_file=$(mktemp)
       echo '{"projects": {}}' > "$final_file"

@@ -31,10 +31,11 @@ This allows inserting urgent work without renumbering existing phases.
 | Phase | Name | Status | Verification Gate |
 |-------|------|--------|-------------------|
 | 0010 | Roadmap Flexibility | ✅ Complete | Insert/defer commands work |
-| 0015 | Workflow Commands | ✅ In Progress | Merge and backlog commands work |
-| 0020 | Onboarding Polish | ✅ Not Started | New user can set up without confusion |
-| 0030 | Test Suite Completion | ✅ Not Started | All tests pass on macOS and Linux |
-| 0040 | Integration Options | ✅ Not Started | Existing docs imported successfully |
+| 0015 | Workflow Commands | ✅ Complete | Merge and backlog commands work |
+| 0020 | Onboarding Polish | ✅ Complete | New user can set up without confusion |
+| 0030 | Test Suite Completion | ✅ Complete | All tests pass on macOS and Linux |
+| 0040 | Integration Options | ✅ Complete | Existing docs imported successfully |
+| 0041 | Code Review Findings | ✅ In Progress | All review findings addressed |
 | 1010 | Web UI Dashboard | ⬜ Not Started | **USER GATE**: Dashboard shows project status |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
@@ -187,6 +188,43 @@ This allows inserting urgent work without renumbering existing phases.
 
 ---
 
+### 0041 - Code Review Findings
+
+**Goal**: Address code quality findings from systematic review (2026-01-11).
+
+**Scope**:
+- 36 approved findings across 7 categories
+- Best Practices (6): Error handling, strict mode, code hygiene
+- Refactoring (7): Extract large functions, reduce complexity
+- Hardening (4): Input validation, cleanup traps, dependency checks
+- Missing Features (3): Multi-runner gate support, backlog priorities
+- Orphaned Code (4): Remove legacy scripts, fix stale references
+- Over-Engineering (4): Simplify roadmap/state file complexity
+- Outdated Docs (8): Fix placeholders, update references
+
+**Review Document**: `.specify/reviews/review-20260111.md`
+
+**User Stories**:
+1. As a developer, I can trust the codebase follows best practices consistently
+2. As a maintainer, I can navigate simplified, well-factored code
+3. As a user, I find documentation that matches actual implementation
+
+**Deliverables**:
+- Fixed scripts in `scripts/bash/` (BP, RF, HD findings)
+- Deleted legacy `check-prerequisites.sh`
+- Updated documentation (README.md, CLAUDE.md, speckit.specify.md)
+- Refactored `speckit-state.sh` and `speckit-roadmap.sh`
+- Extended `speckit-gate.sh` with multi-runner support
+
+**Verification Gate**:
+- All 36 findings addressed or explicitly re-deferred with rationale
+- No regressions in existing tests
+- shellcheck passes on all modified scripts
+
+**Estimated Complexity**: High (36 findings, multiple refactors)
+
+---
+
 ## Milestone 1: Extended Features
 
 ### 1010 - Web UI Dashboard
@@ -304,3 +342,4 @@ Branch names remain unchanged (branches use short names, not phase numbers).
 | 2026-01-10 | Initial roadmap (v2.0, 001-005 numbering) |
 | 2026-01-10 | Migrated to v2.1 ABBC numbering, added Phase 0010 (Roadmap Flexibility) |
 | 2026-01-10 | Backlog triage: created 0015 (Workflow Commands), promoted items to 0020 |
+| 2026-01-11 | Added Phase 0041 (Code Review Findings) - 36 findings from /speckit.review |

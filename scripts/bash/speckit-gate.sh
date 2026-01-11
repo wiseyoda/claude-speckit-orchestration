@@ -77,6 +77,55 @@ PLACEHOLDER_PATTERNS=(
 # as name/pattern argument pairs for POSIX compatibility
 
 # =============================================================================
+# Test Runner Detection
+# =============================================================================
+
+# Detect the appropriate test runner for the current project
+# Returns: test command string (empty if no test runner found)
+detect_test_runner() {
+  local test_cmd=""
+
+  # Python: pytest
+  if [[ -f "pytest.ini" ]] || [[ -f "pyproject.toml" ]] || [[ -f "setup.py" ]]; then
+    if grep -q "pytest" pyproject.toml 2>/dev/null || [[ -f "pytest.ini" ]]; then
+      test_cmd="pytest"
+    elif [[ -f "tox.ini" ]]; then
+      test_cmd="tox"
+    fi
+  fi
+
+  # Go: go test
+  if [[ -z "$test_cmd" ]] && [[ -f "go.mod" ]]; then
+    test_cmd="go test ./..."
+  fi
+
+  # Bash: bats
+  if [[ -z "$test_cmd" ]] && ls tests/*.bats tests/*.sh 2>/dev/null | head -1 | grep -q "bats$"; then
+    test_cmd="bats tests/"
+  fi
+
+  # Rust: cargo test
+  if [[ -z "$test_cmd" ]] && [[ -f "Cargo.toml" ]]; then
+    test_cmd="cargo test"
+  fi
+
+  # Node.js: npm test (fallback)
+  if [[ -z "$test_cmd" ]] && [[ -f "package.json" ]]; then
+    # Check if test script is configured
+    if jq -e '.scripts.test' package.json >/dev/null 2>&1; then
+      test_cmd="npm test"
+    fi
+  fi
+
+  # SpecKit project: custom test runner
+  if [[ -z "$test_cmd" ]] && [[ -f "tests/test-runner.sh" ]]; then
+    test_cmd="./tests/test-runner.sh"
+  fi
+
+  echo "$test_cmd"
+}
+
+# =============================================================================
 # Gate Checks
 # =============================================================================
 
@@ -360,11 +409,14 @@ gate_implement() {
     fi
   fi
 
-  # Check for test failures (if test command exists)
-  if command -v npm &>/dev/null && [[ -f "package.json" ]]; then
+  # Check for test failures (detect appropriate test runner)
+  local test_cmd
+  test_cmd=$(detect_test_runner)
+
+  if [[ -n "$test_cmd" ]]; then
     echo ""
-    echo "  Checking tests..."
-    if npm test --silent 2>/dev/null; then
+    echo "  Checking tests ($test_cmd)..."
+    if $test_cmd >/dev/null 2>&1; then
       log_success "Tests passing"
     else
       log_warn "Tests failing or not configured"
