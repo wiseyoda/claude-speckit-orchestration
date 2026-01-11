@@ -449,16 +449,18 @@ cmd_validate() {
 
   # Check for TODO markers
   local todos
-  todos=$(grep -c "\[TODO" "$pdr_file" 2>/dev/null || echo "0")
-  if [[ "$todos" -gt 0 ]]; then
+  todos=$(grep -c "\[TODO" "$pdr_file" 2>/dev/null | tr -d '\n' || true)
+  todos="${todos:-0}"
+  if [[ "$todos" =~ ^[0-9]+$ ]] && [[ "$todos" -gt 0 ]]; then
     log_warn "$todos TODO marker(s) remaining"
     ((warnings++))
   fi
 
   # Check for placeholder brackets
   local placeholders
-  placeholders=$(grep -cE "\[[A-Z][A-Z_ ]+\]" "$pdr_file" 2>/dev/null || echo "0")
-  if [[ "$placeholders" -gt 0 ]]; then
+  placeholders=$(grep -cE "\[[A-Z][A-Z_ ]+\]" "$pdr_file" 2>/dev/null | tr -d '\n' || true)
+  placeholders="${placeholders:-0}"
+  if [[ "$placeholders" =~ ^[0-9]+$ ]] && [[ "$placeholders" -gt 0 ]]; then
     log_warn "$placeholders placeholder(s) remaining (e.g., [FEATURE NAME])"
     ((warnings++))
   fi
