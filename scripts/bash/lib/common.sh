@@ -545,3 +545,47 @@ safe_file_update() {
     return 1
   fi
 }
+
+# =============================================================================
+# Phase Number Validation
+# =============================================================================
+
+# Validate phase number format (ABBC or ABC)
+# Usage: validate_phase_number "0041" "2.1" -> returns 0 (success)
+#        validate_phase_number "041" "2.0"  -> returns 0 (success)
+validate_phase_number() {
+  local phase="$1"
+  local format="${2:-2.1}"
+
+  case "$format" in
+    2.0)
+      [[ "$phase" =~ ^[0-9]{3}$ ]]
+      ;;
+    2.1)
+      [[ "$phase" =~ ^[0-9]{4}$ ]]
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# =============================================================================
+# Input Sanitization
+# =============================================================================
+
+# Sanitize a string for use in grep/jq patterns
+# Escapes characters that have special meaning in regex/jq
+sanitize_for_pattern() {
+  local input="$1"
+  # Escape regex special characters: \ . * + ? ^ $ { } [ ] | ( )
+  printf '%s' "$input" | sed 's/[\\.*+?^${}[\]|()]/\\&/g'
+}
+
+# Sanitize for jq string interpolation
+# Escapes characters that could break jq queries
+sanitize_for_jq() {
+  local input="$1"
+  # Escape backslash and double quotes for jq
+  printf '%s' "$input" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}

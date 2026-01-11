@@ -16,6 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/json.sh"
 
+# Validate dependencies
+require_jq
+
 # =============================================================================
 # Constants
 # =============================================================================
@@ -625,6 +628,8 @@ cmd_insert() {
   if $non_interactive; then
     goal="[TODO: Define goal]"
     gate="[TODO: Define verification gate]"
+    log_warn "Non-interactive mode: placeholders added for goal and gate"
+    log_warn "Edit ROADMAP.md to replace [TODO:...] markers before development"
   else
     echo "Creating phase $new_phase - $phase_name"
     echo ""
@@ -739,7 +744,7 @@ cmd_defer() {
   local roadmap_path
   roadmap_path="$(get_roadmap_path)"
 
-  # Normalize phase number
+  # Normalize phase to 4-digit ABBC format (10# forces base-10 to handle leading zeros)
   phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
 
   # Verify phase exists
@@ -888,7 +893,7 @@ cmd_restore() {
   local roadmap_path
   roadmap_path="$(get_roadmap_path)"
 
-  # Normalize phase number
+  # Normalize phase to 4-digit ABBC format (10# forces base-10 to handle leading zeros)
   phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
 
   # Check if phase is in backlog

@@ -31,11 +31,13 @@ The CLI uses a dispatcher pattern:
 ```
 bin/speckit                 → Main entry, routes to scripts
 scripts/bash/
-├── lib/common.sh           → Colors, logging, paths, validation
-├── lib/json.sh             → jq wrappers for JSON manipulation
+├── lib/
+│   ├── common.sh           → Colors, logging, paths, validation
+│   ├── json.sh             → jq wrappers for JSON manipulation
+│   └── detection.sh        → Project type detection
 ├── speckit-state.sh        → State CRUD with v2.0 schema, UUID, registry
-├── speckit-context.sh      → Project context (replaces check-prerequisites.sh)
-├── speckit-feature.sh      → Feature management (replaces create-new-feature.sh)
+├── speckit-context.sh      → Project context
+├── speckit-feature.sh      → Feature management
 ├── speckit-scaffold.sh     → Project structure creation
 └── speckit-*.sh            → Other commands
 
