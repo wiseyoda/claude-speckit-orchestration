@@ -19,6 +19,7 @@
 #   detect      Detect existing content and documentation
 #   reconcile   Reconcile state with file system
 #   memory      Memory document operations (init, list, check)
+#   pdr         PDR (Product Design Requirements) operations
 #   help        Show this help message
 #   version     Show version
 #
@@ -170,6 +171,14 @@ COMMANDS:
                   upgrade             Apply available upgrades
                   status              Show version status
 
+    pdr         PDR (Product Design Requirements) operations
+                  list                List all PDRs with status
+                  status              Show PDR summary (counts)
+                  show <file>         Show PDR details
+                  validate <file>     Validate PDR structure
+                  path                Show PDR directory path
+                  init                Create PDR directory
+
     help        Show this help message
     version     Show version
 
@@ -278,6 +287,9 @@ main() {
     import)
       run_script "import" "$@"
       ;;
+    pdr)
+      run_script "pdr" "$@"
+      ;;
     help|--help|-h)
       show_help
       exit 0
@@ -287,7 +299,7 @@ main() {
       exit 0
       ;;
     # Slash commands - these are Claude Code prompts, not CLI commands
-    analyze|specify|clarify|plan|implement|verify|orchestrate|init|constitution|start)
+    analyze|specify|clarify|plan|implement|verify|orchestrate|init|constitution|start|phase)
       log_error "Unknown command: ${command}"
       echo ""
       log_info "'${command}' is a Claude Code slash command, not a CLI command."
