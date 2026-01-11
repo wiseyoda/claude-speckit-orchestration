@@ -286,23 +286,26 @@ cmd_mark() {
     exit 1
   fi
 
-  # Sanitize and validate task ID
-  # Remove any characters that could be regex-dangerous
-  task_id=$(echo "$task_id" | tr -cd '[:alnum:]')
+  # Sanitize task ID - allow alphanumeric plus dots for formats like A1.1, B2.3
+  task_id=$(echo "$task_id" | tr -cd '[:alnum:].')
   task_id=$(echo "$task_id" | tr '[:lower:]' '[:upper:]')
 
-  # Validate format: T followed by 3+ digits
-  if [[ ! "$task_id" =~ ^T[0-9]{3,}$ ]]; then
+  # Validate format: alphanumeric with optional dots (T001, A1.1, B2.3, etc.)
+  # Must start with letter or digit, can contain dots for hierarchical IDs
+  if [[ ! "$task_id" =~ ^[A-Z0-9][A-Z0-9.]*$ ]]; then
     log_error "Invalid task ID format: $task_id"
-    log_info "Expected format: T001, T002, T003, etc. (T followed by 3+ digits)"
+    log_info "Expected format: T001, A1.1, B2.3, etc. (alphanumeric with optional dots)"
     exit 1
   fi
 
   # Additional security: ensure task_id only contains safe characters
-  if [[ "$task_id" =~ [^A-Z0-9] ]]; then
+  if [[ "$task_id" =~ [^A-Z0-9.] ]]; then
     log_error "Task ID contains invalid characters"
     exit 1
   fi
+
+  # Escape dots for regex use (dot matches any char in regex)
+  local task_id_regex="${task_id//./\\.}"
 
   if [[ -z "$file" ]]; then
     file="$(find_tasks_file)"
@@ -313,14 +316,14 @@ cmd_mark() {
     exit 1
   fi
 
-  # Check if task exists
-  if ! grep -qE "^\s*-\s*\[[x ]\]\s*${task_id}\b" "$file"; then
+  # Check if task exists (match **A1.1**: or just A1.1 at word boundary)
+  if ! grep -qE "^\s*-\s*\[[x ]\]\s*\*?\*?${task_id_regex}\*?\*?" "$file"; then
     log_error "Task not found: $task_id"
     exit 1
   fi
 
   # Check if already complete
-  if grep -qE "^\s*-\s*\[x\]\s*${task_id}\b" "$file"; then
+  if grep -qE "^\s*-\s*\[x\]\s*\*?\*?${task_id_regex}\*?\*?" "$file"; then
     log_warn "Task already complete: $task_id"
     exit 0
   fi
@@ -330,7 +333,8 @@ cmd_mark() {
   temp_file=$(mktemp)
 
   # Use POSIX-compatible whitespace pattern (macOS sed doesn't support \s)
-  sed -E "s/^([[:space:]]*-[[:space:]]*)\[ \]([[:space:]]*${task_id})/\1[x]\2/" "$file" > "$temp_file"
+  # Match task IDs that may be wrapped in ** bold markers
+  sed -E "s/^([[:space:]]*-[[:space:]]*)\[ \]([[:space:]]*\*?\*?${task_id_regex})/\1[x]\2/" "$file" > "$temp_file"
   mv "$temp_file" "$file"
 
   log_success "Marked complete: $task_id"

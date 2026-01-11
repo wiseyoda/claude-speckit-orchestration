@@ -129,6 +129,10 @@ COMMANDS:
                   [--fix]             Auto-fix issues
                   [--check <area>]    Check specific area
 
+    status      Comprehensive project status (for orchestrate)
+                  [--json]            JSON output
+                  [--quick]           Skip deep validation
+
     detect      Detect existing content
                   [--check <area>]    Check specific area (system, speckit, docs, files, state)
 
@@ -281,6 +285,9 @@ main() {
       ;;
     doctor)
       run_script "doctor" "$@"
+      ;;
+    status)
+      run_script "status" "$@"
       ;;
     detect)
       run_script "detect" "$@"

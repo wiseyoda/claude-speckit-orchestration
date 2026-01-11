@@ -70,45 +70,58 @@ State transitions: `pending → in_progress → completed | blocked | failed`
 
 ### 0. Initialize Orchestration Context
 
-**0a. Verify Prerequisites**
+**0a. Get Comprehensive Status (ONE CALL)**
 ```bash
-speckit state validate           # State file
-speckit roadmap validate         # ROADMAP.md
-speckit doctor                   # Overall health
+speckit status --json            # Returns everything needed to resume
 ```
 
-If ROADMAP.md missing: Ask user to create via `/speckit.roadmap` or manually.
+This single call returns:
+```json
+{
+  "health": { "ok": true, "issues": [] },
+  "phase": { "number": "0170", "name": "...", "branch": "...", "status": "in_progress" },
+  "step": { "current": "implement", "index": 6, "status": "in_progress" },
+  "tasks": { "completed": 0, "total": 122, "percentage": 0 },
+  "git": { "branch": "...", "matches_state": true, "uncommitted": 3 },
+  "artifacts": { "spec": true, "plan": true, "tasks": true, "checklists": true },
+  "roadmap": { "phase_status": "in_progress", "matches_state": true },
+  "ready": true,
+  "next_action": "continue_implement"
+}
+```
 
-**0b. Handle Arguments**
+**0b. Handle Status Response**
+
+Check `health.ok`:
+- If `false`: Show issues from `health.issues[]`, exit with instructions
+
+Check `ready`:
+- If `false`: Handle `next_action` before proceeding
+
+**0c. Handle Arguments**
 | Argument | Action |
 |----------|--------|
-| `continue`/empty | Resume from `orchestration.step.current` |
+| `continue`/empty | Resume from `step.current` in status |
 | `reset` | Clear steps, restart from specify |
 | `status` | Display status and exit |
 | `skip-to [step]` | Update `orchestration.step.current` and `orchestration.step.index` |
 | `next-phase` | Merge branch, checkout next, reset steps |
 
-**0c. Verify State Matches Reality**
-```bash
-speckit git branch current       # Git branch matches state?
-speckit tasks status             # Task completion accurate?
-speckit roadmap status --json    # Phase status matches?
-```
+**0d. Auto-Recovery Based on next_action**
+| next_action | Recovery |
+|-------------|----------|
+| `fix_health` | Run `speckit doctor --fix` |
+| `fix_branch` | Checkout `phase.branch` |
+| `archive_phase` | Run `speckit state archive` (ROADMAP shows complete) |
+| `sync_roadmap` | Run `speckit reconcile --trust-files` |
+| `start_phase` | Continue to Section 1 |
+| `continue_*` | Resume from that step |
 
-**CRITICAL**: If ROADMAP shows current phase as "Complete" but state still references it:
-1. Log: "Phase already complete in ROADMAP. Resetting for next phase."
-2. Run `speckit state archive`
-3. Continue to Section 1
-
-Verification checks for each "completed" step:
-- specify: spec.md exists
-- clarify: spec.md has Clarifications section
-- plan: plan.md exists
-- tasks: tasks.md exists
-- analyze: No critical issues
-- checklist: checklists/ has files
-- implement: All tasks marked [X]
-- verify: ROADMAP.md updated
+**Artifact Cross-Check** (use `artifacts` from status):
+- Step > 0: `spec` should be true
+- Step > 2: `plan` should be true
+- Step > 3: `tasks` should be true
+- Step > 5: `checklists` should be true
 
 If mismatch: Run `speckit doctor --fix`, reset affected step.
 
