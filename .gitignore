@@ -1,0 +1,22 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Backup files
+*.bak
+*.bak.*
+
+# Test artifacts
+test-output/
+coverage/
+
+# Local development
+.env
+.env.local
