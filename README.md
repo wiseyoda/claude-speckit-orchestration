@@ -1,5 +1,7 @@
 # SpecKit - Spec-Driven Development for Claude Code
 
+[![Test Suite](https://github.com/YOUR_USERNAME/claude-speckit-orchestration/actions/workflows/test.yml/badge.svg)](https://github.com/YOUR_USERNAME/claude-speckit-orchestration/actions/workflows/test.yml)
+
 > **Version 2.0** - Simplified architecture with web UI support
 
 SpecKit is a comprehensive framework for spec-driven development (SDD) that integrates with [Claude Code](https://claude.ai/claude-code). It provides structured workflows for requirements gathering, specification writing, planning, implementation, and verification.

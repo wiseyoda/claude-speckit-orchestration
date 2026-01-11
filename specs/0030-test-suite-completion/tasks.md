@@ -39,7 +39,7 @@
 
 - [x] T008 [P2] [US3] Create .github/workflows/test.yml with ubuntu-latest runner
 - [x] T009 [P2] [US3] Add shellcheck step to CI workflow
-- [ ] T010 [P2] [US3] Test CI workflow by pushing to branch
+- [x] T010 [P2] [US3] Test CI workflow by pushing to branch
 
 ## US4: Cross-Platform Compatibility
 
@@ -51,8 +51,8 @@
 
 ## Polish Tasks
 
-- [ ] T014 [P2] Add CI status badge to README.md (if CI passes)
-- [ ] T015 [P1] Final verification: run full test suite and confirm all pass
+- [x] T014 [P2] Add CI status badge to README.md (if CI passes)
+- [x] T015 [P1] Final verification: run full test suite and confirm all pass
 
 ---
 
