@@ -65,6 +65,8 @@ COMMANDS:
     migrate             Migrate issues from ROADMAP.md Issues Backlog
         --dry-run       Show what would happen without executing
 
+    sync                Rebuild index.json from issue files
+
     path [id]           Show path to issue file (or issues directory)
 
 OPTIONS:
@@ -115,6 +117,112 @@ get_next_issue_number() {
   done
 
   printf "%03d" $((max + 1))
+}
+
+# Initialize or get index file path
+get_index_path() {
+  local issues_dir
+  issues_dir="$(get_issues_dir)"
+  echo "${issues_dir}/index.json"
+}
+
+# Initialize index.json if it doesn't exist
+init_index() {
+  local index_path
+  index_path="$(get_index_path)"
+
+  if [[ ! -f "$index_path" ]]; then
+    echo '{"issues": []}' > "$index_path"
+  fi
+}
+
+# Rebuild index.json from issue files (full sync)
+rebuild_index() {
+  local issues_dir
+  issues_dir="$(get_issues_dir)"
+  local index_path
+  index_path="$(get_index_path)"
+
+  local issues_array="[]"
+
+  for file in "$issues_dir"/ISSUE-*.md; do
+    if [[ ! -f "$file" ]]; then
+      continue
+    fi
+
+    local id status phase
+    id=$(basename "$file" .md)
+    status=$(parse_issue_frontmatter "$file" "status")
+    phase=$(parse_issue_frontmatter "$file" "phase")
+
+    issues_array=$(echo "$issues_array" | jq \
+      --arg id "$id" \
+      --arg status "${status:-open}" \
+      --arg phase "${phase:-}" \
+      '. + [{id: $id, status: $status, phase: $phase}]')
+  done
+
+  echo "$issues_array" | jq '{issues: .}' > "$index_path"
+}
+
+# Add issue to index
+add_to_index() {
+  local id="$1"
+  local status="${2:-open}"
+  local phase="${3:-}"
+
+  local index_path
+  index_path="$(get_index_path)"
+  init_index
+
+  # Add new entry
+  local updated
+  updated=$(jq \
+    --arg id "$id" \
+    --arg status "$status" \
+    --arg phase "$phase" \
+    '.issues += [{id: $id, status: $status, phase: $phase}]' "$index_path")
+
+  echo "$updated" > "$index_path"
+}
+
+# Update issue in index
+update_in_index() {
+  local id="$1"
+  local status="${2:-}"
+  local phase="${3:-}"
+
+  local index_path
+  index_path="$(get_index_path)"
+
+  if [[ ! -f "$index_path" ]]; then
+    rebuild_index
+    return
+  fi
+
+  # Update existing entry or add if not found
+  local updated
+  if jq -e --arg id "$id" '.issues | map(select(.id == $id)) | length > 0' "$index_path" > /dev/null 2>&1; then
+    # Update existing
+    if [[ -n "$status" ]] && [[ -n "$phase" ]]; then
+      updated=$(jq --arg id "$id" --arg status "$status" --arg phase "$phase" \
+        '.issues = [.issues[] | if .id == $id then {id: $id, status: $status, phase: $phase} else . end]' "$index_path")
+    elif [[ -n "$status" ]]; then
+      updated=$(jq --arg id "$id" --arg status "$status" \
+        '.issues = [.issues[] | if .id == $id then .status = $status else . end]' "$index_path")
+    elif [[ -n "$phase" ]]; then
+      updated=$(jq --arg id "$id" --arg phase "$phase" \
+        '.issues = [.issues[] | if .id == $id then .phase = $phase else . end]' "$index_path")
+    else
+      return
+    fi
+  else
+    # Add new entry
+    updated=$(jq --arg id "$id" --arg status "${status:-open}" --arg phase "${phase:-}" \
+      '.issues += [{id: $id, status: $status, phase: $phase}]' "$index_path")
+  fi
+
+  echo "$updated" > "$index_path"
 }
 
 # Find issue file by ID
@@ -407,6 +515,9 @@ ${description:-[TODO: Describe the problem or request]}
 <!-- Additional context, related files, etc. -->
 EOF
 
+  # Update index.json
+  add_to_index "$id" "open" "$phase"
+
   log_success "Created issue: $id"
 
   if is_json_output; then
@@ -417,7 +528,7 @@ EOF
       '{created: true, id: $id, title: $title, file: $file}'
   else
     echo ""
-    echo "Edit with: $EDITOR $file"
+    echo "Edit with: ${EDITOR:-vim} $file"
     echo "View: speckit issue show $id"
   fi
 }
@@ -476,11 +587,17 @@ cmd_close() {
 
   mv "$temp_file" "$file"
 
-  log_success "Closed issue: $(basename "$file" .md)"
+  local issue_id
+  issue_id=$(basename "$file" .md)
+
+  # Update index.json
+  update_in_index "$issue_id" "closed" ""
+
+  log_success "Closed issue: $issue_id"
 
   if is_json_output; then
     jq -n \
-      --arg id "$(basename "$file" .md)" \
+      --arg id "$issue_id" \
       --arg resolved "$(date +%Y-%m-%d)" \
       '{closed: true, id: $id, resolved: $resolved}'
   fi
@@ -548,10 +665,18 @@ cmd_update() {
 
   mv "$temp_file" "$file"
 
-  log_success "Updated issue: $(basename "$file" .md)"
+  local issue_id
+  issue_id=$(basename "$file" .md)
+
+  # Update index.json if status or phase changed
+  if [[ -n "$status" ]] || [[ -n "$phase" ]]; then
+    update_in_index "$issue_id" "$status" "$phase"
+  fi
+
+  log_success "Updated issue: $issue_id"
 
   if is_json_output; then
-    jq -n --arg id "$(basename "$file" .md)" '{updated: true, id: $id}'
+    jq -n --arg id "$issue_id" '{updated: true, id: $id}'
   fi
 }
 
@@ -664,12 +789,38 @@ EOF
     done
   fi
 
+  # Rebuild index after migration
+  rebuild_index
+
   log_success "Migrated $migrated issue(s) to .specify/issues/"
   echo ""
   echo "Review with: speckit issue list"
   echo ""
   echo "Note: Issues Backlog section still exists in ROADMAP.md"
   echo "Remove it manually after verifying migration."
+}
+
+cmd_sync() {
+  local issues_dir
+  issues_dir="$(get_issues_dir)"
+
+  if [[ ! -d "$issues_dir" ]]; then
+    log_error "No issues directory found"
+    exit 1
+  fi
+
+  rebuild_index
+
+  local index_path
+  index_path="$(get_index_path)"
+  local count
+  count=$(jq '.issues | length' "$index_path")
+
+  log_success "Rebuilt index.json with $count issue(s)"
+
+  if is_json_output; then
+    cat "$index_path"
+  fi
 }
 
 cmd_path() {
@@ -724,6 +875,9 @@ main() {
       ;;
     migrate)
       cmd_migrate "$@"
+      ;;
+    sync)
+      cmd_sync
       ;;
     path)
       cmd_path "${1:-}"
