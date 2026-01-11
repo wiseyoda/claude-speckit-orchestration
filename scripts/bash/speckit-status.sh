@@ -169,13 +169,45 @@ collect_status() {
   local git_branch=""
   local git_matches=true
   local git_uncommitted=0
+  local feature_branch_exists=true
+  local phase_merged=false
 
   if is_git_repo; then
     git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
-    # Check if branch matches state
+    # Check if feature branch exists (locally or remotely)
+    if [[ -n "$phase_branch" && "$phase_branch" != "null" ]]; then
+      if ! git rev-parse --verify "$phase_branch" &>/dev/null && \
+         ! git rev-parse --verify "origin/$phase_branch" &>/dev/null; then
+        feature_branch_exists=false
+      fi
+
+      # Check if phase was merged to main (look for merge commit or PR merge)
+      if [[ "$git_branch" == "main" || "$git_branch" == "master" ]]; then
+        # Check for conventional commit format: feat(0170): or fix(0170):
+        if git log --oneline -20 2>/dev/null | grep -qE "(feat|fix|chore|docs)\(${phase_number}\)"; then
+          phase_merged=true
+        # Check git log for merge commits mentioning the phase
+        elif git log --oneline -20 --grep="$phase_number" 2>/dev/null | grep -q .; then
+          phase_merged=true
+        # Also check for PR merge pattern: Phase NNNN or #N
+        elif git log --oneline -20 2>/dev/null | grep -qiE "Phase.*${phase_number}|${phase_number}.*phase"; then
+          phase_merged=true
+        fi
+      fi
+    fi
+
+    # Smart branch matching logic
     if [[ -n "$phase_branch" && "$phase_branch" != "null" && "$git_branch" != "$phase_branch" ]]; then
-      git_matches=false
+      if [[ "$feature_branch_exists" == "false" && "$phase_merged" == "true" ]]; then
+        # Branch deleted after merge - this is expected, not an error
+        git_matches=true
+      elif [[ "$feature_branch_exists" == "false" && ("$git_branch" == "main" || "$git_branch" == "master") ]]; then
+        # On main, branch deleted but merge not confirmed - likely merged externally
+        git_matches=true
+      else
+        git_matches=false
+      fi
     fi
 
     # Count uncommitted changes (quick)
@@ -186,7 +218,9 @@ collect_status() {
     --arg branch "$git_branch" \
     --argjson matches "$git_matches" \
     --argjson uncommitted "$git_uncommitted" \
-    '.git = {branch: $branch, matches_state: $matches, uncommitted: $uncommitted}')
+    --argjson branch_exists "$feature_branch_exists" \
+    --argjson merged "$phase_merged" \
+    '.git = {branch: $branch, matches_state: $matches, uncommitted: $uncommitted, feature_branch_exists: $branch_exists, phase_merged: $merged}')
 
   # -------------------------------------------------------------------------
   # 4. Artifact Existence
@@ -218,6 +252,8 @@ collect_status() {
   if [[ -n "$phase_number" && "$phase_number" != "null" && -f "${repo_root}/ROADMAP.md" ]]; then
     if grep -qE "^\|.*${phase_number}.*\|.*✅|^##.*${phase_number}.*✅" "${repo_root}/ROADMAP.md" 2>/dev/null; then
       roadmap_status="complete"
+    elif grep -qE "^\|.*${phase_number}.*\|.*⏳|^\|.*${phase_number}.*\|.*Awaiting" "${repo_root}/ROADMAP.md" 2>/dev/null; then
+      roadmap_status="awaiting_user"
     elif grep -qE "^\|.*${phase_number}.*\|.*🔄|^\|.*${phase_number}.*\|.*In Progress" "${repo_root}/ROADMAP.md" 2>/dev/null; then
       roadmap_status="in_progress"
     elif grep -qE "^\|.*${phase_number}.*\||^##.*${phase_number}" "${repo_root}/ROADMAP.md" 2>/dev/null; then
@@ -227,7 +263,10 @@ collect_status() {
 
   local roadmap_matches=true
   if [[ "$phase_status" != "not_started" && "$roadmap_status" != "unknown" ]]; then
-    if [[ "$phase_status" == "in_progress" && "$roadmap_status" != "in_progress" ]]; then
+    if [[ "$phase_status" == "in_progress" && "$roadmap_status" != "in_progress" && "$roadmap_status" != "awaiting_user" ]]; then
+      # in_progress state can match either in_progress or awaiting_user ROADMAP status
+      roadmap_matches=false
+    elif [[ "$phase_status" == "awaiting_user_gate" && "$roadmap_status" != "awaiting_user" ]]; then
       roadmap_matches=false
     elif [[ "$phase_status" == "completed" && "$roadmap_status" != "complete" ]]; then
       roadmap_matches=false
@@ -246,13 +285,37 @@ collect_status() {
   local next_action="unknown"
   local ready=true
 
+  # Post-merge detection: On main, branch deleted, phase merged or ROADMAP shows complete/awaiting
+  local post_merge_state=false
+  if [[ "$feature_branch_exists" == "false" && ("$git_branch" == "main" || "$git_branch" == "master") ]]; then
+    if [[ "$phase_merged" == "true" || "$roadmap_status" == "complete" || "$roadmap_status" == "awaiting_user" ]]; then
+      post_merge_state=true
+    fi
+  fi
+
   # Check for mismatches that need fixing
   if [[ "$git_matches" == "false" ]]; then
     next_action="fix_branch"
     ready=false
+  elif [[ "$post_merge_state" == "true" ]]; then
+    # Phase was merged, determine what to do next
+    if [[ "$roadmap_status" == "awaiting_user" ]]; then
+      next_action="verify_user_gate"
+      ready=true
+    elif [[ "$roadmap_status" == "complete" ]]; then
+      next_action="start_next_phase"
+      ready=true
+    else
+      # Merged but ROADMAP not updated - need to archive
+      next_action="archive_phase"
+      ready=false
+    fi
   elif [[ "$roadmap_matches" == "false" ]]; then
     if [[ "$roadmap_status" == "complete" ]]; then
       next_action="archive_phase"
+    elif [[ "$roadmap_status" == "awaiting_user" ]]; then
+      next_action="verify_user_gate"
+      ready=true
     else
       next_action="sync_roadmap"
     fi
@@ -269,7 +332,8 @@ collect_status() {
   result=$(echo "$result" | jq \
     --argjson ready "$ready" \
     --arg action "$next_action" \
-    '.ready = $ready | .next_action = $action')
+    --argjson post_merge "$post_merge_state" \
+    '.ready = $ready | .next_action = $action | .post_merge_state = $post_merge')
 
   echo "$result"
 }
@@ -322,15 +386,23 @@ display_status() {
 
   # Git
   echo ""
-  local git_branch git_matches git_uncommitted
+  local git_branch git_matches git_uncommitted branch_exists phase_merged post_merge
   git_branch=$(echo "$status" | jq -r '.git.branch // "none"')
   git_matches=$(echo "$status" | jq -r '.git.matches_state')
   git_uncommitted=$(echo "$status" | jq -r '.git.uncommitted // 0')
+  branch_exists=$(echo "$status" | jq -r '.git.feature_branch_exists // true')
+  phase_merged=$(echo "$status" | jq -r '.git.phase_merged // false')
+  post_merge=$(echo "$status" | jq -r '.post_merge_state // false')
 
-  if [[ "$git_matches" == "true" ]]; then
+  if [[ "$post_merge" == "true" ]]; then
+    print_status ok "Git: On ${git_branch} (phase merged)"
+  elif [[ "$git_matches" == "true" ]]; then
     print_status ok "Git branch: ${git_branch}"
   else
     print_status warn "Git branch mismatch: ${git_branch}"
+    if [[ "$branch_exists" == "false" ]]; then
+      echo "    Feature branch no longer exists"
+    fi
   fi
 
   if [[ "$git_uncommitted" -gt 0 ]]; then

@@ -111,11 +111,25 @@ Check `ready`:
 | next_action | Recovery |
 |-------------|----------|
 | `fix_health` | Run `speckit doctor --fix` |
-| `fix_branch` | Checkout `phase.branch` |
+| `fix_branch` | Checkout `phase.branch` (only if branch exists) |
 | `archive_phase` | Run `speckit state archive` (ROADMAP shows complete) |
 | `sync_roadmap` | Run `speckit reconcile --trust-files` |
+| `verify_user_gate` | Phase merged, awaiting user verification - prompt user |
+| `start_next_phase` | Archive current state and start next phase |
 | `start_phase` | Continue to Section 1 |
 | `continue_*` | Resume from that step |
+
+**0e. Post-Merge State Handling**
+
+When `post_merge_state` is `true`, the phase was merged to main:
+- Feature branch was deleted (normal after PR merge)
+- On main/master branch
+- Git log shows merge commit OR ROADMAP shows complete/awaiting
+
+Actions:
+1. If ROADMAP shows "⏳ Awaiting User": Display user gate prompt, wait for approval
+2. If ROADMAP shows "✅ Complete": Archive state, start next phase
+3. Otherwise: Update ROADMAP to reflect completion, then archive
 
 **Artifact Cross-Check** (use `artifacts` from status):
 - Step > 0: `spec` should be true
@@ -124,6 +138,16 @@ Check `ready`:
 - Step > 5: `checklists` should be true
 
 If mismatch: Run `speckit doctor --fix`, reset affected step.
+
+**0f. Check Open Issues for Phase**
+```bash
+speckit issue list --open --phase {phase_number} --json
+```
+
+If issues exist:
+- Display count and high-priority issues
+- These should be addressed during IMPLEMENT step
+- Critical issues may block verification
 
 ---
 
@@ -376,6 +400,35 @@ Error recovery:
    speckit lessons add error "Brief description of error"
    ```
 
+**Issue Discovery During Implementation:**
+
+When discovering bugs, improvements, or technical debt that's not blocking current work:
+```bash
+# Create issue for later
+speckit issue create "Description of issue" \
+  --category bug|improvement|debt \
+  --priority high|medium|low \
+  --phase {current_phase_or_future}
+
+# Example: Found UX issue not in scope
+speckit issue create "Button alignment inconsistent on mobile" \
+  --category improvement \
+  --priority medium \
+  --phase 0050
+```
+
+**Address Phase Issues:**
+
+Check for open issues assigned to current phase:
+```bash
+speckit issue list --open --phase {phase_number}
+```
+
+For each high-priority issue:
+1. Attempt to resolve as part of current implementation
+2. If resolved: `speckit issue close ISSUE-XXX --resolution "Fixed in task T###"`
+3. If cannot resolve: Leave open with notes, mention in verify step
+
 **VERIFY BEFORE ADVANCING:**
 ```bash
 # Verify all tasks are complete
@@ -409,6 +462,20 @@ Execute `/speckit.verify` logic:
 3. Checklist verification
 4. Deferred items identification
 5. Lessons learned review (prompt to add if lessons-learned.md is sparse)
+6. **Issue resolution check**
+
+**Check Unresolved Phase Issues:**
+```bash
+speckit issue list --open --phase {phase_number} --json
+```
+
+If open issues remain:
+- **Critical/High priority**: Must resolve before completing phase
+- **Medium/Low priority**: Can defer to future phase - update issue:
+  ```bash
+  speckit issue update ISSUE-XXX --phase {next_phase}
+  ```
+- Document deferred issues in verification summary
 
 **USER GATE Phases**:
 
@@ -508,10 +575,12 @@ Always use `AskUserQuestion` with:
 | Error | Recovery |
 |-------|----------|
 | State corrupted | Rebuild from filesystem artifacts |
-| Branch mismatch | Checkout correct branch |
+| Branch mismatch (branch exists) | Checkout correct branch |
+| Branch deleted (post-merge) | Check ROADMAP status, proceed with verification or next phase |
 | Missing artifact | Re-run producing step |
 | ROADMAP missing | Halt, instruct user to create |
 | Constitution violation | Halt, ask user for decision |
+| State out of sync after merge | Archive state, update ROADMAP, start next phase |
 
 ## Context
 
