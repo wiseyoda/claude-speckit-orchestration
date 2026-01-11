@@ -28,20 +28,26 @@
   },
   "orchestration": {
     "phase": {
-      "number": null,
-      "name": null,
-      "branch": null,
-      "status": "not_started"
+      "number": "0060",
+      "name": "constitution-compliance",
+      "branch": "0060-constitution-compliance",
+      "status": "in_progress"
     },
     "step": {
-      "current": null,
-      "index": 0,
-      "status": "not_started"
+      "current": "implement",
+      "index": "6",
+      "status": "in_progress"
     },
     "progress": {
       "tasks_completed": 0,
-      "tasks_total": 0,
+      "tasks_total": "58",
       "percentage": 0
+    },
+    "steps": {
+      "implement": {
+        "tasks_completed": 11,
+        "tasks_total": 58
+      }
     }
   },
   "health": {
@@ -95,5 +101,5 @@
     "last_sync": null,
     "notifications": []
   },
-  "last_updated": "2026-01-11T20:17:39Z"
+  "last_updated": "2026-01-11T21:06:42Z"
 }
