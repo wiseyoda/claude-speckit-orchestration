@@ -292,7 +292,9 @@ speckit state set "orchestration.step.index=4"
 
 Check: If `orchestration.step.index > 4` → re-run quick analysis, skip if clean.
 
-Execute `/speckit.analyze` logic, then AUTO-FIX LOOP:
+**IMPORTANT**: This step performs analysis INLINE (do NOT run `speckit analyze` as a CLI command - it doesn't exist). Follow the analysis logic below:
+
+Perform cross-artifact analysis on spec.md, plan.md, and tasks.md, then AUTO-FIX LOOP:
 
 ```text
 MAX_ITERATIONS = 5

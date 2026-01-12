@@ -131,13 +131,34 @@ install_speckit() {
   # Copy commands (with backup if upgrading)
   log_info "Installing commands..."
   if [[ "$upgrade" == "true" ]]; then
-    # Backup existing commands
-    local backup_dir="${SPECKIT_COMMANDS}/.backup-$(date +%Y%m%d%H%M%S)"
+    # Backup existing commands to ~/.speckit/backups/ (NOT ~/.claude/ to avoid import)
+    local backup_dir="${HOME}/.speckit/backups/commands-$(date +%Y%m%d%H%M%S)"
     mkdir -p "$backup_dir"
     cp "${SPECKIT_COMMANDS}/speckit."*.md "$backup_dir/" 2>/dev/null || true
     log_info "Backed up existing commands to $backup_dir"
+
+    # Clean up old backups that were incorrectly placed in ~/.claude/commands/
+    local old_backup_count=0
+    for old_backup in "${SPECKIT_COMMANDS}/.backup-"*; do
+      if [[ -d "$old_backup" ]]; then
+        rm -rf "$old_backup"
+        ((old_backup_count++)) || true
+      fi
+    done
+    if [[ $old_backup_count -gt 0 ]]; then
+      log_info "Cleaned up $old_backup_count old backup director(y|ies) from ~/.claude/commands/"
+    fi
   fi
 
+  # Build list of valid command files from source
+  local valid_commands=()
+  for cmd in "${REPO_DIR}/commands/"speckit.*.md "${REPO_DIR}/commands/utilities/"speckit.*.md; do
+    if [[ -f "$cmd" ]]; then
+      valid_commands+=("$(basename "$cmd")")
+    fi
+  done
+
+  # Copy commands from main commands directory
   for cmd in "${REPO_DIR}/commands/"speckit.*.md; do
     if [[ -f "$cmd" ]]; then
       local filename=$(basename "$cmd")
@@ -152,6 +173,30 @@ install_speckit() {
       cp "$cmd" "${SPECKIT_COMMANDS}/${filename}"
     fi
   done
+
+  # Clean up stale commands (those not in source anymore)
+  if [[ "$upgrade" == "true" ]]; then
+    local stale_count=0
+    for installed in "${SPECKIT_COMMANDS}/"speckit.*.md; do
+      if [[ -f "$installed" ]]; then
+        local filename=$(basename "$installed")
+        local is_valid=false
+        for valid in "${valid_commands[@]}"; do
+          if [[ "$filename" == "$valid" ]]; then
+            is_valid=true
+            break
+          fi
+        done
+        if [[ "$is_valid" == "false" ]]; then
+          rm -f "$installed"
+          ((stale_count++)) || true
+        fi
+      fi
+    done
+    if [[ $stale_count -gt 0 ]]; then
+      log_info "Removed $stale_count stale command(s)"
+    fi
+  fi
 
   # Copy QUESTION_CATEGORIES
   if [[ -f "${REPO_DIR}/QUESTION_CATEGORIES.md" ]]; then
