@@ -407,8 +407,8 @@ echo "Creating branch: $NEXT_BRANCH"
 git checkout -b "$NEXT_BRANCH"
 git push -u origin "$NEXT_BRANCH"
 
-# Initialize state for new phase
-speckit state init
+# Initialize state for new phase (idempotent)
+speckit state init --if-missing
 speckit state set "orchestration.phase.number=$NEXT_NUMBER"
 speckit state set "orchestration.phase.name=$NEXT_NAME"
 speckit state set "orchestration.phase.branch=$NEXT_BRANCH"

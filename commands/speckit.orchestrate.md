@@ -55,7 +55,7 @@ Use SpecKit CLI for all state operations:
 ```bash
 speckit state validate           # Check if state exists/valid
 speckit state get --json         # Read current state
-speckit state init               # Initialize new state
+speckit state init --if-missing  # Initialize new state (idempotent)
 speckit state set "key=value"    # Update state value
 speckit state archive            # Archive completed phase
 speckit doctor --fix             # Auto-repair issues
@@ -151,11 +151,15 @@ If issues exist:
 
 ### 1. Determine Current Phase
 
-**If no state file (fresh start):**
+**Initialize state (idempotent - safe to always run):**
+```bash
+speckit state init --if-missing  # Creates state only if missing, no-op otherwise
+```
+
+**If starting a new phase (state exists but no phase in progress):**
 ```bash
 speckit roadmap next --json      # Get next pending phase
 speckit git branch create "NNN-phase-name"
-speckit state init
 speckit state set "orchestration.phase.number=NNN"
 speckit state set "orchestration.phase.name=phase-name"
 speckit state set "orchestration.phase.branch=NNN-phase-name"

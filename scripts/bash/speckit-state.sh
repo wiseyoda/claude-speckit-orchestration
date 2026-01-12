@@ -5,7 +5,7 @@
 # Usage:
 #   speckit state get [key]              Show state or specific key
 #   speckit state set <key>=<value>      Update a value
-#   speckit state init                   Initialize new state file
+#   speckit state init [--if-missing]    Initialize new state file (--if-missing for idempotent)
 #   speckit state reset                  Reset to defaults
 #   speckit state validate               Validate state file
 #   speckit state migrate                Migrate v1.0 state to v2.0
@@ -134,6 +134,8 @@ COMMANDS:
     init                Initialize a new state file
                         Creates .specify/orchestration-state.json
                         Generates project UUID for web UI support
+                        --if-missing  Only init if no state exists (idempotent)
+                        --force       Overwrite existing state without prompt
 
     reset               Reset state to defaults (keeps project/config)
 
@@ -184,6 +186,7 @@ EXAMPLES:
     speckit state get .orchestration.step # Show current step
     speckit state set .project.name=MyApp # Set project name
     speckit state init                    # Create new state file
+    speckit state init --if-missing       # Create only if missing (for workflows)
     speckit state validate                # Check state validity
     speckit state reconcile               # Check config vs file system
     speckit state reconcile --fix         # Fix config mismatches
@@ -318,7 +321,19 @@ register_project() {
 
 # Initialize state file
 cmd_init() {
-  local force="${1:-}"
+  local force=false
+  local if_missing=false
+
+  # Parse flags
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force=true ;;
+      --if-missing) if_missing=true ;;
+      *) log_error "Unknown option: $1"; exit 1 ;;
+    esac
+    shift
+  done
+
   local state_file
   state_file="$(get_state_file)"
   local specify_dir
@@ -327,13 +342,18 @@ cmd_init() {
   repo_root="$(get_repo_root)"
 
   # Check if state file exists
-  if [[ -f "$state_file" ]] && [[ "$force" != "--force" ]]; then
-    log_warn "State file already exists: $state_file"
-    log_info "After 'speckit state archive', use 'speckit state set' to configure the next phase"
-    log_info "To completely reinitialize, use 'speckit state init --force'"
-    if ! confirm "Overwrite existing state file?"; then
-      log_info "Keeping existing state file. Use 'speckit state set' to update values."
+  if [[ -f "$state_file" ]]; then
+    if $if_missing; then
+      # Silent success - state already exists, nothing to do
       exit 0
+    elif ! $force; then
+      log_warn "State file already exists: $state_file"
+      log_info "Use 'speckit state init --if-missing' for idempotent init (recommended for workflows)"
+      log_info "Use 'speckit state init --force' to overwrite"
+      if ! confirm "Overwrite existing state file?"; then
+        log_info "Keeping existing state file. Use 'speckit state set' to update values."
+        exit 0
+      fi
     fi
   fi
 
@@ -1706,7 +1726,7 @@ main() {
       cmd_set "$1"
       ;;
     init)
-      cmd_init "${1:-}"
+      cmd_init "$@"
       ;;
     reset)
       cmd_reset "${1:-}"
