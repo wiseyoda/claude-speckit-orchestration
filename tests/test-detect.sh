@@ -205,12 +205,12 @@ test_detect_all() {
   local output
   output=$(bash "${PROJECT_ROOT}/scripts/bash/speckit-detect.sh" 2>&1)
 
-  # Should include all sections
-  assert_contains "$output" "System Installation" "Includes system section"
-  assert_contains "$output" "SpecKit Artifacts" "Includes speckit section"
-  assert_contains "$output" "Existing Documentation" "Includes docs section"
-  assert_contains "$output" "Key Files" "Includes files section"
-  assert_contains "$output" "Summary" "Includes summary"
+  # Should include key indicators from each section
+  assert_contains "$output" "SpecKit CLI installed" "Shows CLI status"
+  assert_contains "$output" ".specify/ directory" "Shows SpecKit artifacts"
+  assert_contains "$output" "docs/ directory" "Shows existing documentation"
+  assert_contains "$output" "CLAUDE.md" "Shows key files"
+  assert_contains "$output" "Project state:" "Shows summary"
 }
 
 # =============================================================================

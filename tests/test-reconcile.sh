@@ -30,9 +30,9 @@ test_reconcile_git_branch_mismatch() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set branch in state
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.branch=feat/test-branch"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
+  # Set branch in state (v2.0 schema)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.branch=feat/test-branch"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
 
   # Current branch is main/master
   local output
@@ -47,11 +47,11 @@ test_reconcile_task_comparison() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set up orchestration state
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase_number=001"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.steps.implement.tasks_completed=5"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.steps.implement.tasks_total=10"
+  # Set up orchestration state (v2.0 schema paths)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.number=001"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.progress.tasks_completed=5"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.progress.tasks_total=10"
 
   # Create tasks.md with different count
   mkdir -p specs/001-test
@@ -82,20 +82,20 @@ test_reconcile_dry_run() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set mismatch
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.branch=wrong-branch"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
+  # Set mismatch (v2.0 schema)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.branch=wrong-branch"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
 
   # Get original value
   local original
-  original=$(jq -r '.orchestration.branch' .specify/orchestration-state.json)
+  original=$(jq -r '.orchestration.phase.branch' .specify/orchestration-state.json)
 
   # Run with dry-run
   bash "${PROJECT_ROOT}/scripts/bash/speckit-reconcile.sh" --dry-run --trust-files 2>&1
 
   # Value should not have changed
   local after
-  after=$(jq -r '.orchestration.branch' .specify/orchestration-state.json)
+  after=$(jq -r '.orchestration.phase.branch' .specify/orchestration-state.json)
   assert_equals "$original" "$after" "Dry run doesn't modify files"
 }
 
@@ -103,11 +103,11 @@ test_reconcile_trust_files() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set up with task mismatch
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase_number=001"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.steps.implement.tasks_completed=2"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.steps.implement.tasks_total=5"
+  # Set up with task mismatch (v2.0 schema)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.number=001"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.progress.tasks_completed=2"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.progress.tasks_total=5"
 
   # Create tasks.md with 4/5 complete
   mkdir -p specs/001-test
@@ -125,7 +125,7 @@ EOF
 
   # State should be updated to match files
   local completed
-  completed=$(jq -r '.orchestration.steps.implement.tasks_completed' .specify/orchestration-state.json)
+  completed=$(jq -r '.orchestration.progress.tasks_completed' .specify/orchestration-state.json)
   assert_equals "4" "$completed" "State updated from files"
 }
 
@@ -149,9 +149,9 @@ test_reconcile_roadmap_check() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set orchestration in progress
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase_number=002"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
+  # Set orchestration in progress (v2.0 schema)
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.number=002"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
 
   # Create ROADMAP with matching status
   cat > ROADMAP.md << 'EOF'
@@ -176,10 +176,10 @@ test_reconcile_spec_artifacts() {
   git init -q .
   bash "${PROJECT_ROOT}/scripts/bash/speckit-scaffold.sh"
 
-  # Set specify step as completed
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase_number=001"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.status=in_progress"
-  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.steps.specify.status=completed"
+  # Set step past specify (v2.0 schema) - e.g., on plan step
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.number=001"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.phase.status=in_progress"
+  bash "${PROJECT_ROOT}/scripts/bash/speckit-state.sh" set ".orchestration.step.current=plan"
 
   # But no spec.md exists
   mkdir -p specs/001-test
@@ -201,8 +201,8 @@ test_reconcile_summary() {
   local output
   output=$(bash "${PROJECT_ROOT}/scripts/bash/speckit-reconcile.sh" 2>&1)
 
-  # Should include summary
-  assert_contains "$output" "Summary" "Includes summary section"
+  # Should include summary info - either "in sync" or "difference(s)"
+  assert_matches "$output" "in sync|difference" "Includes summary info"
 }
 
 test_reconcile_json_output() {

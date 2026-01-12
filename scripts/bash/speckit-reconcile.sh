@@ -253,13 +253,13 @@ compare_roadmap() {
   fi
 
   if [[ "$orch_status" == "in_progress" && "$roadmap_status" == "in_progress" ]]; then
-    print_status ok "Phase ${current_phase}: in_progress (in sync)"
+    print_status ok "ROADMAP: Phase ${current_phase} in_progress (in sync)"
   elif [[ "$orch_status" == "completed" && "$roadmap_status" == "complete" ]]; then
-    print_status ok "Phase ${current_phase}: complete (in sync)"
+    print_status ok "ROADMAP: Phase ${current_phase} complete (in sync)"
   elif [[ "$roadmap_status" == "unknown" ]]; then
-    print_status warn "Phase ${current_phase}: couldn't determine ROADMAP status"
+    print_status warn "ROADMAP: Phase ${current_phase} status unknown"
   else
-    print_status warn "Phase ${current_phase}: state=${orch_status}, ROADMAP=${roadmap_status}"
+    print_status warn "ROADMAP: Phase ${current_phase} mismatch - state=${orch_status}, file=${roadmap_status}"
     add_difference "roadmap" "$orch_status" "$roadmap_status" "ROADMAP phase status mismatch"
   fi
 }

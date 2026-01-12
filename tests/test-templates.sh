@@ -172,8 +172,9 @@ EOF
   local output
   output=$(bash "${PROJECT_ROOT}/scripts/bash/speckit-templates.sh" diff spec-template.md 2>&1)
 
-  assert_contains "$output" "System version" "Shows system version"
-  assert_contains "$output" "Project version" "Shows project version"
+  # Output format: "System: 1.5, Project: 1.0"
+  assert_contains "$output" "System:" "Shows system version"
+  assert_contains "$output" "Project:" "Shows project version"
 }
 
 test_templates_invalid_command() {
