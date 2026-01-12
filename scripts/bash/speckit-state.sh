@@ -25,9 +25,8 @@ source "${SCRIPT_DIR}/lib/json.sh"
 
 readonly STATE_VERSION="2.0"
 
-# Central registry path - use centralized helper from common.sh
-SPECKIT_REGISTRY="$(get_speckit_registry)"
-readonly SPECKIT_REGISTRY
+# Central registry path - inline constant (avoids subshell at load time)
+readonly SPECKIT_REGISTRY="${HOME}/.speckit/registry.json"
 
 # Generate a UUID v4
 generate_uuid() {

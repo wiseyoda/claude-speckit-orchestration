@@ -796,6 +796,45 @@ check_roadmap() {
     log_info "Run 'speckit migrate roadmap --dry-run' to preview fix"
   elif $has_4digit; then
     print_status ok "ROADMAP format: 2.1 (4-digit phases)"
+
+    # Check for modular vs inline format
+    local has_inline_phases=false
+    local has_phase_files=false
+    local phases_dir="${repo_root}/.specify/phases"
+
+    # Check if ROADMAP has inline phase sections (### NNNN - ...)
+    if grep -qE '^###[[:space:]]*[0-9]{4}[[:space:]]*-' "$roadmap_path" 2>/dev/null; then
+      has_inline_phases=true
+    fi
+
+    # Check if phase files exist
+    if [[ -d "$phases_dir" ]] && [[ -n "$(find "$phases_dir" -maxdepth 1 -name '*.md' 2>/dev/null | head -1)" ]]; then
+      has_phase_files=true
+    fi
+
+    if $has_inline_phases && ! $has_phase_files; then
+      print_status warn "ROADMAP has inline phases (modular format recommended)"
+      add_warning "ROADMAP.md has inline phase sections - consider migrating to modular format"
+      if [[ "$fix" == "true" ]]; then
+        log_info "Migrating to modular format..."
+        if bash "${SCRIPT_DIR}/speckit-phase.sh" migrate --collapse 2>/dev/null; then
+          add_fixed "Migrated ROADMAP to modular format with phase files"
+          print_status ok "Migrated to modular format"
+        else
+          print_status error "Failed to migrate to modular format"
+          add_issue "Modular format migration failed"
+        fi
+      else
+        log_info "Run 'speckit phase migrate --collapse' to convert"
+      fi
+    elif $has_inline_phases && $has_phase_files; then
+      print_status warn "ROADMAP has both inline phases and phase files (mixed state)"
+      add_warning "ROADMAP.md has inline phases but .specify/phases/ also has files"
+      log_info "Run 'speckit phase migrate --collapse' to complete migration"
+    elif $has_phase_files; then
+      print_status ok "ROADMAP uses modular format (phases in .specify/phases/)"
+    fi
+
   elif $has_3digit; then
     print_status warn "ROADMAP format: 2.0 (3-digit phases) - upgrade available"
     add_warning "ROADMAP.md uses legacy 3-digit phases"

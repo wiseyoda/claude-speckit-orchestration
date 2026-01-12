@@ -158,17 +158,25 @@ speckit state init --if-missing  # Creates state only if missing, no-op otherwis
 
 **If starting a new phase (state exists but no phase in progress):**
 ```bash
-speckit roadmap next --json      # Get next pending phase
-speckit git branch create "NNN-phase-name"
-speckit state set "orchestration.phase.number=NNN"
+# Get next pending phase from ROADMAP
+speckit roadmap next --json      # Returns {"next": "0090", "name": "mvp-poc"}
+
+# Verify phase file exists (modular format)
+speckit phase show NNNN          # Get full phase details from .specify/phases/
+
+# Create branch and update state
+speckit git branch create "NNNN-phase-name"
+speckit state set "orchestration.phase.number=NNNN"
 speckit state set "orchestration.phase.name=phase-name"
-speckit state set "orchestration.phase.branch=NNN-phase-name"
+speckit state set "orchestration.phase.branch=NNNN-phase-name"
 speckit state set "orchestration.phase.status=in_progress"
 speckit state set "orchestration.step.current=specify"
 speckit state set "orchestration.step.index=0"
 speckit state set "orchestration.step.status=in_progress"
-speckit roadmap update "NNN" in_progress
+speckit roadmap update "NNNN" in_progress
 ```
+
+**Note**: Phase details (Goal, Scope, Deliverables, Verification Gate) are in `.specify/phases/NNNN-phase-name.md`, not inline in ROADMAP.md.
 
 ---
 
@@ -176,8 +184,13 @@ speckit roadmap update "NNN" in_progress
 
 Check: If `orchestration.step.index > 0` and spec.md exists → skip to CLARIFY.
 
+**Get phase details from modular file:**
+```bash
+speckit phase show {phase_number}    # Returns full phase details from .specify/phases/
+```
+
 Execute `/speckit.specify` logic:
-1. Extract Goal, Scope, Deliverables from ROADMAP phase
+1. Extract Goal, Scope, Deliverables from phase file (via `speckit phase show`)
 2. Create spec.md using template
 3. Create requirements.md checklist
 4. Validate specification quality
@@ -552,9 +565,10 @@ Always use `AskUserQuestion` with:
 +----------------------------------------------------------+
 | SpecKit Orchestration Status                             |
 +----------------------------------------------------------+
-| Phase: 001 - Project Architecture Setup                  |
-| Branch: 001-project-architecture-setup                   |
+| Phase: 0010 - project-architecture-setup                 |
+| Branch: 0010-project-architecture-setup                  |
 | Status: In Progress                                      |
+| Details: .specify/phases/0010-project-architecture-setup.md |
 +----------------------------------------------------------+
 | Step        | Status     | Artifacts                     |
 +-------------+------------+-------------------------------+

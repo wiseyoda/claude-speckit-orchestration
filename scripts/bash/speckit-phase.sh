@@ -58,6 +58,7 @@ COMMANDS:
                         Extracts phase sections to .specify/phases/
                         Archives completed phases to HISTORY.md
         --dry-run       Show what would happen without executing
+        --collapse      Also collapse ROADMAP.md to lightweight index
 
     path [phase]        Show path to phase file (or phases directory)
 
@@ -71,6 +72,7 @@ EXAMPLES:
     speckit phase archive 0041
     speckit phase create 0050 "user-auth"
     speckit phase migrate --dry-run
+    speckit phase migrate --collapse
 EOF
 }
 
@@ -207,6 +209,130 @@ extract_history_section() {
       print
     }
   ' "$history_file"
+}
+
+# Collapse ROADMAP.md to lightweight index format
+# Preserves header, table, and footer; removes inline phase sections
+collapse_roadmap() {
+  local roadmap_path="$1"
+
+  # Create backup
+  cp "$roadmap_path" "${roadmap_path}.bak"
+
+  # Find the line after the legend (marks end of table section)
+  # Pattern: **Legend**: ... followed by --- is the table end
+  local legend_end_line
+  legend_end_line=$(grep -n "^\*\*Legend\*\*:" "$roadmap_path" | head -1 | cut -d: -f1)
+
+  if [[ -z "$legend_end_line" ]]; then
+    log_warn "Could not find Legend line in ROADMAP.md"
+    rm "${roadmap_path}.bak"
+    return 1
+  fi
+
+  # Find the next --- after legend
+  local table_end_line
+  table_end_line=$(tail -n +"$legend_end_line" "$roadmap_path" | grep -n "^---$" | head -1 | cut -d: -f1)
+  table_end_line=$((legend_end_line + table_end_line - 1))
+
+  # Extract header section (up to and including the --- after legend)
+  head -n "$table_end_line" "$roadmap_path" > "${roadmap_path}.new"
+
+  # Add modular format notice
+  cat >> "${roadmap_path}.new" << 'EOF'
+
+## Phase Details
+
+Phase details are stored in modular files:
+
+| Location | Content |
+|----------|---------|
+| `.specify/phases/*.md` | Active/pending phase details |
+| `.specify/history/HISTORY.md` | Archived completed phases |
+
+To view a specific phase:
+```bash
+speckit phase show 0010
+```
+
+To list all phases:
+```bash
+speckit phase list
+speckit phase list --active
+speckit phase list --complete
+```
+
+---
+
+## Verification Gates Summary
+EOF
+
+  # Extract any existing user verification gates table
+  local gates_section
+  gates_section=$(awk '/^## Verification Gates Summary/,/^---$/' "$roadmap_path" | tail -n +2 | sed '$d')
+
+  if [[ -n "$gates_section" ]] && [[ $(echo "$gates_section" | grep -c '|') -gt 2 ]]; then
+    echo "" >> "${roadmap_path}.new"
+    echo "$gates_section" >> "${roadmap_path}.new"
+  else
+    # Generate from table
+    echo "" >> "${roadmap_path}.new"
+    echo "| Gate | Phase | What User Verifies |" >> "${roadmap_path}.new"
+    echo "|------|-------|-------------------|" >> "${roadmap_path}.new"
+    grep -E "^\|.*USER GATE" "$roadmap_path" | while IFS='|' read -r _ num name _ gate _; do
+      num=$(echo "$num" | tr -d ' ')
+      gate=$(echo "$gate" | sed 's/.*USER GATE[^:]*:[[:space:]]*//')
+      echo "| USER GATE | $num | $gate |" >> "${roadmap_path}.new"
+    done
+  fi
+
+  # Add footer
+  cat >> "${roadmap_path}.new" << 'EOF'
+
+---
+
+## Phase Sizing Guidelines
+
+Each phase is designed to be:
+- **Completable** in a single agentic coding session (~200k tokens)
+- **Independently deployable** (no half-finished features)
+- **Verifiable** with clear success criteria
+- **Building** on previous phases
+
+If a phase is running long:
+1. Cut scope to MVP for that phase
+2. Document deferred items in `specs/[phase]/checklists/deferred.md`
+3. Prioritize verification gate requirements
+
+---
+
+## How to Use This Document
+
+### Starting a Phase
+```
+/speckit.orchestrate
+```
+Or manually:
+```
+/speckit.specify "Phase NNNN - [Phase Name]"
+```
+
+### After Completing a Phase
+1. Update status in table above: ⬜ → ✅
+2. Archive phase: `speckit phase archive NNNN`
+3. If USER GATE: get explicit user verification before proceeding
+
+### Adding New Phases
+Use SpecKit commands:
+```bash
+speckit roadmap insert --after 0020 "New Phase Name"
+speckit phase create 0025 "new-phase"
+```
+EOF
+
+  # Replace original
+  mv "${roadmap_path}.new" "$roadmap_path"
+  rm -f "${roadmap_path}.bak"
 }
 
 # =============================================================================
@@ -627,12 +753,17 @@ EOF
 
 cmd_migrate() {
   local dry_run=false
+  local collapse=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run)
         dry_run=true
+        shift
+        ;;
+      --collapse)
+        collapse=true
         shift
         ;;
       *)
@@ -678,7 +809,11 @@ cmd_migrate() {
     echo ""
     echo "3. Archive $complete_phases completed phase(s) to .specify/history/HISTORY.md"
     echo ""
-    echo "4. Collapse ROADMAP.md to lightweight index format"
+    if $collapse; then
+      echo "4. Collapse ROADMAP.md to lightweight index format (--collapse)"
+    else
+      echo "4. (skipped) Use --collapse to rewrite ROADMAP.md"
+    fi
     echo ""
     echo "No changes made."
     exit 0
@@ -751,13 +886,22 @@ EOF
     fi
   done < <(grep -E '^\|[[:space:]]*[0-9]{3,4}[[:space:]]*\|' "$roadmap_path" 2>/dev/null)
 
+  # Collapse ROADMAP if requested
+  if $collapse; then
+    collapse_roadmap "$roadmap_path"
+  fi
+
   log_success "Migration complete"
   echo ""
   echo "  Extracted: $extracted active phase(s) to .specify/phases/"
   echo "  Archived: $archived completed phase(s) to .specify/history/HISTORY.md"
-  echo ""
-  echo "Note: ROADMAP.md still contains inline sections."
-  echo "Run /speckit.roadmap to regenerate as lightweight index."
+  if $collapse; then
+    echo "  Collapsed: ROADMAP.md to lightweight index format"
+  else
+    echo ""
+    echo "Note: ROADMAP.md still contains inline sections."
+    echo "Run 'speckit phase migrate --collapse' or use /speckit.roadmap to regenerate."
+  fi
 }
 
 cmd_path() {

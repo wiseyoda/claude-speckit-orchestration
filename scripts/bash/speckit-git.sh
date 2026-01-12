@@ -30,9 +30,10 @@ USAGE:
 
 COMMANDS:
     branch create <name>    Create and checkout a new branch
-                            Automatically prefixes with phase number if in orchestration
+                            Fails if uncommitted changes (commit/stash first)
 
     branch checkout <name>  Checkout an existing branch
+                            Fails if uncommitted changes (commit/stash first)
 
     branch current          Show current branch name
 
@@ -133,13 +134,14 @@ cmd_branch_create() {
     exit 1
   fi
 
-  # Check for uncommitted changes
-  if has_uncommitted_changes || has_untracked_files; then
-    log_warn "You have uncommitted changes"
-    if ! confirm "Create branch anyway?"; then
-      log_info "Branch creation cancelled. Commit or stash your changes first."
-      exit 0
-    fi
+  # Fail if uncommitted changes - agent should handle this explicitly
+  if has_uncommitted_changes; then
+    log_error "Cannot create branch: uncommitted changes detected"
+    log_info "Options:"
+    log_info "  1. Commit changes: git add -A && git commit -m 'message'"
+    log_info "  2. Stash changes:  git stash push -m 'wip'"
+    log_info "  3. Discard changes: git checkout -- . (destructive)"
+    exit 1
   fi
 
   # Create and checkout
@@ -166,13 +168,14 @@ cmd_branch_checkout() {
 
   ensure_git_repo
 
-  # Check for uncommitted changes
+  # Fail if uncommitted changes - agent should handle this explicitly
   if has_uncommitted_changes; then
-    log_warn "You have uncommitted changes"
-    if ! confirm "Switch branch anyway? Changes will be kept."; then
-      log_info "Branch switch cancelled. Commit or stash your changes first."
-      exit 0
-    fi
+    log_error "Cannot switch branch: uncommitted changes detected"
+    log_info "Options:"
+    log_info "  1. Commit changes: git add -A && git commit -m 'message'"
+    log_info "  2. Stash changes:  git stash push -m 'wip'"
+    log_info "  3. Discard changes: git checkout -- . (destructive)"
+    exit 1
   fi
 
   # Try local first, then remote

@@ -41,6 +41,8 @@ OPTIONS:
     --force             Overwrite existing files
     --safe              Preview what would be created (no changes made)
     --status            Show what exists vs what's needed
+    --sync-templates    Sync templates from central installation to project
+                        Updates all templates to latest versions
     --type TYPE         Force project type (typescript, javascript, python,
                         rust, go, bash, generic). Auto-detected if not set.
     --skip-templates    Don't copy templates
@@ -945,17 +947,33 @@ Phases use **ABBC** format:
 
 ---
 
-## Phases
+## Phase Details
 
-### 0010 - (First Phase Name)
+Phase details are stored in modular files:
 
-**Goal**: (Define the goal)
+| Location | Content |
+|----------|---------|
+| \`.specify/phases/*.md\` | Active/pending phase details |
+| \`.specify/history/HISTORY.md\` | Archived completed phases |
 
-**Scope**:
-- [ ] Task 1
-- [ ] Task 2
+To view a specific phase:
+\`\`\`bash
+speckit phase show 0010
+\`\`\`
 
-**Verification Gate**: (How to verify completion)
+To create a phase:
+\`\`\`bash
+speckit phase create 0010 "first-phase"
+\`\`\`
+
+---
+
+## Next Steps
+
+Run one of:
+- \`/speckit.init\` - Interactive project interview
+- \`/speckit.roadmap\` - Generate phases from description
+- \`speckit phase create 0010 "first-phase"\` - Create first phase manually
 
 EOF
     log_debug "Created: ROADMAP.md"
@@ -1016,6 +1034,77 @@ EOF
 }
 
 # =============================================================================
+# Sync Templates
+# =============================================================================
+
+# Sync templates from central installation to project
+cmd_sync_templates() {
+  local repo_root
+  repo_root="$(get_repo_root)"
+  local src_templates="${SPECKIT_SYSTEM_DIR}/templates"
+  local dst_templates="${repo_root}/.specify/templates"
+
+  # Check source exists
+  if [[ ! -d "$src_templates" ]]; then
+    log_error "Central templates not found: $src_templates"
+    log_info "Run install.sh to set up SpecKit"
+    exit 1
+  fi
+
+  # Check destination exists
+  if [[ ! -d "$dst_templates" ]]; then
+    log_error "Project templates directory not found: $dst_templates"
+    log_info "Run 'speckit scaffold' first to initialize project"
+    exit 1
+  fi
+
+  # Count files
+  local src_count dst_count
+  src_count=$(find "$src_templates" -maxdepth 1 \( -name "*.md" -o -name "*.yaml" \) 2>/dev/null | wc -l | tr -d ' ')
+  dst_count=$(find "$dst_templates" -maxdepth 1 \( -name "*.md" -o -name "*.yaml" \) 2>/dev/null | wc -l | tr -d ' ')
+
+  log_info "Syncing templates: $src_count source → $dst_count existing"
+
+  local copied=0
+  local updated=0
+  local added=0
+
+  # Copy all templates
+  while IFS= read -r -d '' file; do
+    if [[ -f "$file" ]]; then
+      local filename
+      filename=$(basename "$file")
+      local dst_file="${dst_templates}/${filename}"
+
+      if [[ -f "$dst_file" ]]; then
+        # Check if different
+        if ! diff -q "$file" "$dst_file" >/dev/null 2>&1; then
+          cp "$file" "$dst_file"
+          ((updated++)) || true
+          print_status "ok" "Updated: $filename"
+        fi
+      else
+        cp "$file" "$dst_file"
+        ((added++)) || true
+        print_status "ok" "Added: $filename"
+      fi
+      ((copied++)) || true
+    fi
+  done < <(find "$src_templates" -maxdepth 1 \( -name "*.md" -o -name "*.yaml" \) -print0 2>/dev/null)
+
+  echo ""
+  if [[ $updated -eq 0 && $added -eq 0 ]]; then
+    log_success "Templates already up to date ($copied files)"
+  else
+    log_success "Synced $copied templates ($updated updated, $added added)"
+  fi
+
+  if is_json_output; then
+    echo "{\"synced\": true, \"total\": $copied, \"updated\": $updated, \"added\": $added}"
+  fi
+}
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -1025,6 +1114,7 @@ main() {
   local skip_templates="false"
   local skip_scripts="false"
   local status_only="false"
+  local sync_templates="false"
   local project_type=""
 
   # Parse arguments
@@ -1040,6 +1130,10 @@ main() {
         ;;
       --status|-s)
         status_only="true"
+        shift
+        ;;
+      --sync-templates)
+        sync_templates="true"
         shift
         ;;
       --type)
@@ -1081,7 +1175,9 @@ main() {
   # Validate we're in a git repo
   validate_context
 
-  if [[ "$status_only" == "true" ]]; then
+  if [[ "$sync_templates" == "true" ]]; then
+    cmd_sync_templates
+  elif [[ "$status_only" == "true" ]]; then
     cmd_status
   else
     cmd_scaffold "$force" "$skip_templates" "$skip_scripts" "$safe_mode" "$project_type"

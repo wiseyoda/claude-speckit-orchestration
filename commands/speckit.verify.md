@@ -390,25 +390,40 @@ User must explicitly confirm before marking complete
 speckit roadmap status
 ```
 
-**7e. If deferred items exist, update NEXT phase in ROADMAP.md:**
+**7e. If deferred items exist, create handoff file for NEXT phase:**
 
-If the phase has deferred items (deferred.md was created), update the NEXT phase's section in ROADMAP.md:
+If the phase has deferred items (deferred.md was created), create a handoff file for the NEXT phase:
 
-1. Identify the next phase number (current + 1)
-2. Read ROADMAP.md and find the next phase's section
-3. Add a "Deferred from Previous Phases" subsection after the Goal:
+1. Identify the next phase number (current + 10, e.g., 0090 → 0100)
+2. Get next phase details: `speckit phase show {next_phase_number}`
+3. Create handoff file at `.specify/phases/{current_phase}-handoff.md`:
 
 ```markdown
-**Deferred from Previous Phases** (see `specs/[CURRENT_PHASE]/checklists/deferred.md`):
+---
+source_phase: {current_phase_number}
+target_phase: {next_phase_number}
+status: pending
+created: {date}
+---
+
+# Handoff: Deferred Items from Phase {current_phase_number}
+
+The following items were deferred from Phase {current_phase_number} - {current_phase_name}.
+
+See full details: `specs/{current_phase}/checklists/deferred.md`
+
+## Deferred Items
+
 - [Item 1 brief description]
 - [Item 2 brief description]
 - [Item 3 brief description]
+
+## Backlog Items (if any)
+
+Some items were added to project BACKLOG.md - see `BACKLOG.md`
 ```
 
-4. If items were added to project BACKLOG.md, note this in the roadmap section:
-```markdown
-**Note**: Some items deferred to project Backlog - see `BACKLOG.md`
-```
+4. The handoff file will be read by `/speckit.specify` when starting the next phase.
 
 This ensures the next phase's spec will automatically reference inherited deferred items.
 

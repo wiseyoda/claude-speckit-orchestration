@@ -168,10 +168,19 @@ Place USER GATES at critical checkpoints:
 
 ### Phase 5: Generate Phase Details
 
-For each phase, generate:
+For each phase, create a file in `.specify/phases/`:
+
+**File**: `.specify/phases/NNNN-phase-name.md`
 
 ```markdown
-### NNN - Phase Name
+---
+phase: NNNN
+name: phase-name
+status: not_started
+created: YYYY-MM-DD
+---
+
+### NNNN - Phase Name
 
 **Goal**: [One sentence describing what this phase achieves]
 
@@ -192,27 +201,37 @@ For each phase, generate:
 **Estimated Complexity**: [Low/Medium/High] (brief justification)
 ```
 
+Use the CLI to create phase files:
+```bash
+speckit phase create 0010 "phase-name"
+```
+
 ### Phase 6: Number and Name Phases
 
-**Naming Convention**: `NNN-kebab-case-name`
+**Naming Convention**: `NNNN-kebab-case-name` (ABBC format)
 
-- `NNN` = Three-digit number (000, 001, 002...)
+- `NNNN` = Four-digit ABBC number
+  - **A** = Milestone (0-9)
+  - **BB** = Phase within milestone (01-99)
+  - **C** = Hotfix slot (0 = main, 1-9 = hotfixes)
 - Name = Descriptive kebab-case (e.g., `flow-engine-core`, `database-schema`)
 
 **Examples:**
-- `000-project-initialization` (if starting fresh)
-- `001-project-architecture-setup`
-- `002-flow-engine-core`
-- `003-flow-engine-poc`
+- `0010` - Milestone 0, Phase 01, main
+- `0020` - Milestone 0, Phase 02, main
+- `0021` - Hotfix inserted after Phase 02
+- `1010` - Milestone 1, Phase 01, main
 
 **Numbering Rules:**
-- Start at 000 or 001
-- Sequential, no gaps
-- Leave room for future insertions (can add 001a if needed)
+- Start at 0010
+- Increment by 10 (0010, 0020, 0030...)
+- Use hotfix slots for insertions (0021, 0022 after 0020)
 
 ## Output Format
 
-Generate `ROADMAP.md` with this structure:
+Generate `ROADMAP.md` (lightweight index) AND phase files in `.specify/phases/`:
+
+### ROADMAP.md Structure
 
 ```markdown
 # [Project Name] Development Roadmap
@@ -222,6 +241,7 @@ Generate `ROADMAP.md` with this structure:
 
 **Project**: [Project Name] - [Brief Description]
 **Created**: [Date]
+**Schema Version**: 2.1 (ABBC numbering, modular phases)
 **Status**: [Not Started | In Progress | Complete]
 
 ---
@@ -230,31 +250,28 @@ Generate `ROADMAP.md` with this structure:
 
 | Phase | Name | Status | Verification Gate |
 |-------|------|--------|-------------------|
-| 001 | Phase Name | ⬜ Not Started | Gate description |
-| 002 | Phase Name | ⬜ Not Started | Gate description |
+| 0010 | phase-name | ⬜ Not Started | Gate description |
+| 0020 | phase-name | ⬜ Not Started | Gate description |
+| 0030 | **user-gate-poc** | ⬜ Not Started | **USER GATE**: Description |
 | ... | ... | ... | ... |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
 
 ---
 
-## [Section Name] Phases (NNN-NNN)
+## Phase Details
 
-### NNN - Phase Name
+Phase details are stored in modular files:
 
-**Goal**: ...
+| Location | Content |
+|----------|---------|
+| `.specify/phases/*.md` | Active/pending phase details |
+| `.specify/history/HISTORY.md` | Archived completed phases |
 
-**Scope**: ...
-
-**Deliverables**: ...
-
-**Verification Gate**: ...
-
-**Estimated Complexity**: ...
-
----
-
-[Repeat for each phase]
+To view a specific phase:
+```bash
+speckit phase show 0010
+```
 
 ---
 
@@ -262,7 +279,7 @@ Generate `ROADMAP.md` with this structure:
 
 | Gate | Phase | What User Verifies |
 |------|-------|-------------------|
-| Gate 1 | NNN | Description |
+| Gate 1 | 0030 | Description |
 | ... | ... | ... |
 
 ---
@@ -277,7 +294,7 @@ Each phase is designed to be:
 
 If a phase is running long:
 1. Cut scope to MVP for that phase
-2. Create a follow-up phase for deferred items
+2. Document deferred items in `specs/[phase]/checklists/deferred.md`
 3. Prioritize verification gate requirements
 
 ---
@@ -290,20 +307,24 @@ If a phase is running long:
 ```
 Or manually:
 ```
-/speckit.specify "Phase NNN - [Phase Name]"
+/speckit.specify "Phase NNNN - [Phase Name]"
 ```
 
 ### After Completing a Phase
 1. Update status in table above: ⬜ → ✅
-2. Note completion date
+2. Archive phase: `speckit phase archive NNNN`
 3. If USER GATE: get explicit user verification before proceeding
 
 ### Adding New Phases
-- Insert at appropriate position
-- Renumber subsequent phases if needed
-- Update phase overview table
-- Consider dependencies on previous phases
+```bash
+speckit roadmap insert --after 0020 "New Phase Name"
+speckit phase create 0025 "new-phase"
 ```
+```
+
+### Phase Files
+
+For each phase, also create `.specify/phases/NNNN-phase-name.md` with full details (see Phase 5 above).
 
 ## Clarification Questions
 
