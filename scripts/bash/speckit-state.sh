@@ -66,7 +66,7 @@ read -r -d '' DEFAULT_STATE << 'EOF' || true
     "roadmap_path": "ROADMAP.md",
     "memory_path": ".specify/memory/",
     "specs_path": "specs/",
-    "scripts_path": ".specify/scripts/",
+    "scripts_path": "~/.claude/speckit-system/scripts/",
     "templates_path": ".specify/templates/"
   },
   "interview": {
@@ -1094,7 +1094,7 @@ cmd_migrate() {
           "roadmap_path": (.project.roadmap_path // "ROADMAP.md"),
           "memory_path": (.project.memory_path // ".specify/memory/"),
           "specs_path": (.project.specs_path // "specs/"),
-          "scripts_path": (.project.scripts_path // ".specify/scripts/"),
+          "scripts_path": (.project.scripts_path // "~/.claude/speckit-system/scripts/"),
           "templates_path": (.project.templates_path // ".specify/templates/")
         },
         "interview": (
@@ -1189,7 +1189,7 @@ cmd_migrate() {
           "roadmap_path": "ROADMAP.md",
           "memory_path": ".specify/memory/",
           "specs_path": "specs/",
-          "scripts_path": ".specify/scripts/",
+          "scripts_path": "~/.claude/speckit-system/scripts/",
           "templates_path": ".specify/templates/"
         }),
         "interview": (
@@ -1286,7 +1286,7 @@ cmd_migrate() {
           "roadmap_path": "ROADMAP.md",
           "memory_path": ".specify/memory/",
           "specs_path": "specs/",
-          "scripts_path": ".specify/scripts/",
+          "scripts_path": "~/.claude/speckit-system/scripts/",
           "templates_path": ".specify/templates/"
         },
         "interview": (

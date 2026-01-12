@@ -178,9 +178,10 @@ check_project() {
     return
   fi
 
-  # Check subdirectories (v2.0: discovery is optional, memory is required)
-  local required_dirs=("memory")
-  local optional_dirs=("templates" "scripts" "backup" "archive")
+  # Check subdirectories (v2.1 structure)
+  local required_dirs=("memory" "discovery" "phases" "history" "issues")
+  local optional_dirs=("templates" "archive")
+  local memory_subdirs=("adrs" "pdrs")
 
   for dir in "${required_dirs[@]}"; do
     if [[ -d "${specify_dir}/${dir}" ]]; then
@@ -192,6 +193,21 @@ check_project() {
       if [[ "$fix" == "true" ]]; then
         mkdir -p "${specify_dir}/${dir}"
         add_fixed "Created .specify/${dir}/"
+      fi
+    fi
+  done
+
+  # Check memory subdirectories
+  for subdir in "${memory_subdirs[@]}"; do
+    if [[ -d "${specify_dir}/memory/${subdir}" ]]; then
+      print_status ok "Directory: .specify/memory/${subdir}/"
+    else
+      print_status warn "Missing: .specify/memory/${subdir}/"
+      add_warning "Missing directory: .specify/memory/${subdir}/"
+
+      if [[ "$fix" == "true" ]]; then
+        mkdir -p "${specify_dir}/memory/${subdir}"
+        add_fixed "Created .specify/memory/${subdir}/"
       fi
     fi
   done
@@ -216,7 +232,46 @@ check_project() {
   if [[ -f "${repo_root}/ROADMAP.md" ]]; then
     print_status ok "ROADMAP.md exists"
   else
-    print_status pending "ROADMAP.md (not created yet)"
+    print_status warn "ROADMAP.md missing"
+    add_warning "ROADMAP.md not found"
+
+    if [[ "$fix" == "true" ]]; then
+      local project_name
+      project_name=$(basename "$repo_root")
+      cat > "${repo_root}/ROADMAP.md" << EOF
+# ${project_name} Development Roadmap
+
+> **Source of Truth**: This document defines all feature phases, their order, and completion status.
+
+**Project**: ${project_name}
+**Created**: $(date +%Y-%m-%d)
+**Schema Version**: 2.1 (ABBC numbering)
+**Status**: Not Started
+
+---
+
+## Phase Overview
+
+| Phase | Name | Status | Verification Gate |
+|-------|------|--------|-------------------|
+| 0010 | (first-phase) | ⬜ Not Started | (define gate) |
+
+**Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete
+
+---
+
+## Phases
+
+### 0010 - (First Phase Name)
+
+**Goal**: (Define the goal)
+
+**Verification Gate**: (How to verify completion)
+
+EOF
+      add_fixed "Created ROADMAP.md stub"
+      print_status ok "Created ROADMAP.md"
+    fi
   fi
 
   # Check CLAUDE.md
@@ -285,14 +340,27 @@ check_state() {
 
   # Check required sections
   local sections=("config" "project" "interview" "orchestration")
+  local missing_sections=()
   for section in "${sections[@]}"; do
     if jq -e ".$section" "$state_file" >/dev/null 2>&1; then
       print_status ok "Section: $section"
     else
       print_status error "Missing section: $section"
       add_issue "State missing section: $section"
+      missing_sections+=("$section")
     fi
   done
+
+  # Fix missing sections by re-initializing state
+  if [[ ${#missing_sections[@]} -gt 0 && "$fix" == "true" ]]; then
+    log_info "Re-initializing state to add missing sections..."
+    if bash "${SCRIPT_DIR}/speckit-state.sh" init --force 2>/dev/null; then
+      add_fixed "Re-initialized state file with all sections"
+      print_status ok "Re-initialized state file"
+    else
+      print_status error "Failed to re-initialize state"
+    fi
+  fi
 }
 
 # Check version manifest
@@ -461,6 +529,31 @@ check_paths() {
 
     # Skip non-path keys
     [[ ! "$key" =~ _path$ ]] && continue
+
+    # Special handling for scripts_path - should point to central installation
+    if [[ "$key" == "scripts_path" ]]; then
+      if [[ "$value" == "~/.claude/speckit-system/scripts/" || "$value" == "${HOME}/.claude/speckit-system/scripts/" ]]; then
+        # Expand ~ for checking
+        local expanded_path="${value/#\~/$HOME}"
+        if [[ -d "$expanded_path" ]]; then
+          print_status ok "$key: $value (central)"
+        else
+          print_status error "$key: $value (central install missing)"
+          add_issue "Central scripts not installed at $value"
+        fi
+      elif [[ "$value" == ".specify/scripts/" || "$value" == ".specify/scripts" ]]; then
+        print_status warn "$key: $value (deprecated embedded path)"
+        add_warning "scripts_path uses deprecated embedded location"
+        if [[ "$fix" == "true" ]]; then
+          jq '.config.scripts_path = "~/.claude/speckit-system/scripts/"' "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
+          add_fixed "Updated scripts_path to central installation"
+          print_status ok "Updated scripts_path to central"
+        fi
+      else
+        print_status warn "$key: $value (non-standard path)"
+      fi
+      continue
+    fi
 
     local full_path="${repo_root}/${value}"
 

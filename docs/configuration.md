@@ -169,13 +169,138 @@ speckit migrate roadmap
 
 ## File Locations Summary
 
-| File | Purpose |
+### Project Root
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `ROADMAP.md` | Development phases and status | Yes |
+| `CLAUDE.md` | Claude Code project instructions | Recommended |
+| `README.md` | Project documentation | Optional |
+| `CHANGELOG.md` | Version changelog | Optional |
+
+### State & Configuration (`.specify/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/orchestration-state.json` | Project state (v2.0 schema with UUID) | Yes |
+| `.specify/manifest.json` | Version tracking and compatibility | Recommended |
+
+### Discovery (`.specify/discovery/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/discovery/context.md` | Project identity and constraints | Created by interview |
+| `.specify/discovery/state.md` | Interview session progress | Created by interview |
+| `.specify/discovery/decisions.md` | Requirements decisions log | Created by interview |
+
+### Memory Documents (`.specify/memory/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/memory/constitution.md` | Project principles and governance | **Yes** |
+| `.specify/memory/tech-stack.md` | Approved technologies | Recommended |
+| `.specify/memory/coding-standards.md` | Code style and patterns | Recommended |
+| `.specify/memory/api-standards.md` | API design patterns | Recommended |
+| `.specify/memory/security-checklist.md` | Security requirements | Recommended |
+| `.specify/memory/testing-strategy.md` | Test approach and coverage | Recommended |
+| `.specify/memory/glossary.md` | Project terminology | Optional |
+| `.specify/memory/adrs/` | Architecture Decision Records | Optional |
+| `.specify/memory/pdrs/` | Product Design Requirements | Optional |
+
+### Phase Management (`.specify/phases/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/phases/` | Individual phase detail files | Auto-created |
+| `.specify/phases/[NNNN]-[name].md` | Phase detail (scope, tasks, notes) | Per phase |
+| `.specify/phases/[NNNN]-handoff.md` | Phase handoff for deferred items | As needed |
+
+### History & Archives
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/history/` | Completed phases archive | Auto-created |
+| `.specify/history/HISTORY.md` | Archived phase details | Auto-created |
+| `.specify/archive/` | General archive directory | Auto-created |
+
+### Issue Tracking (`.specify/issues/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/issues/` | Local issue tracking | Auto-created |
+| `.specify/issues/index.json` | Issue index and metadata | Auto-created |
+
+### Templates (`.specify/templates/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `.specify/templates/` | Project-specific template overrides | Optional |
+
+> **Note**: Templates are optional at project level. Central templates at `~/.claude/speckit-system/templates/` are used if project templates don't exist.
+
+### Specifications (`specs/`)
+
+| Path | Purpose | Required |
+|------|---------|----------|
+| `specs/` | Feature specifications root | Yes |
+| `specs/[NNNN]-[feature]/` | Feature directory (4-digit ABBC format) | Per feature |
+| `specs/[NNNN]-[feature]/spec.md` | Feature specification | Yes |
+| `specs/[NNNN]-[feature]/plan.md` | Implementation plan | Yes |
+| `specs/[NNNN]-[feature]/tasks.md` | Task breakdown and tracking | Yes |
+| `specs/[NNNN]-[feature]/checklist.md` | Feature verification checklist | Optional |
+| `specs/[NNNN]-[feature]/review.md` | Code review findings | Optional |
+| `specs/[NNNN]-[feature]/lessons-learned.md` | Retrospective notes | Optional |
+| `specs/[NNNN]-[feature]/checklists/deferred.md` | Deferred items | As needed |
+| `specs/[NNNN]-[feature]/ui/design.md` | UI design document | If applicable |
+| `specs/[NNNN]-[feature]/adrs/` | Feature-specific ADRs | Optional |
+
+### Central Installation (User Home)
+
+| Path | Purpose |
 |------|---------|
-| `.specify/orchestration-state.json` | Project state |
-| `.specify/discovery/` | Interview artifacts |
-| `.specify/memory/` | Memory documents |
-| `.specify/phases/` | Phase detail files |
-| `.specify/issues/` | Local issue tracking |
-| `.specify/templates/` | Project template overrides |
+| `~/.claude/speckit-system/` | SpecKit system installation |
+| `~/.claude/speckit-system/bin/speckit` | CLI dispatcher |
+| `~/.claude/speckit-system/scripts/bash/` | Implementation scripts |
+| `~/.claude/speckit-system/scripts/bash/lib/` | Shared libraries |
+| `~/.claude/speckit-system/templates/` | Central templates |
+| `~/.claude/commands/speckit.*.md` | Slash commands |
 | `~/.speckit/registry.json` | Central project registry |
-| `~/.claude/speckit-system/` | System installation |
+
+### State Config Paths
+
+These paths are stored in `.specify/orchestration-state.json` under `config`:
+
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `config.roadmap_path` | `ROADMAP.md` | ROADMAP location |
+| `config.memory_path` | `.specify/memory/` | Memory docs location |
+| `config.specs_path` | `specs/` | Specs location |
+| `config.scripts_path` | `~/.claude/speckit-system/scripts/` | Scripts location (central) |
+| `config.templates_path` | `.specify/templates/` | Templates location |
+
+### Default Scaffold Structure
+
+Running `speckit scaffold` creates:
+
+```
+project-root/
+├── .specify/
+│   ├── orchestration-state.json
+│   ├── discovery/
+│   │   ├── context.md
+│   │   ├── state.md
+│   │   └── decisions.md
+│   ├── memory/
+│   │   ├── constitution.md
+│   │   ├── tech-stack.md
+│   │   ├── adrs/
+│   │   └── pdrs/
+│   ├── templates/          (optional, for overrides)
+│   ├── phases/
+│   ├── history/
+│   ├── issues/
+│   └── archive/
+├── specs/
+├── ROADMAP.md
+└── CLAUDE.md               (if not present)
+```

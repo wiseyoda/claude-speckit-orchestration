@@ -67,14 +67,18 @@ CREATES:
     ├── memory/
     │   ├── constitution.md  (customized for project type)
     │   ├── tech-stack.md    (customized for project type)
-    │   └── adrs/
-    ├── templates/
-    ├── scripts/
-    │   └── bash/
+    │   ├── adrs/
+    │   └── pdrs/
+    ├── templates/           (optional, for project overrides)
+    ├── phases/
+    ├── history/
+    ├── issues/
     ├── archive/
-    └── orchestration-state.json
+    ├── orchestration-state.json
+    └── manifest.json
 
     specs/                  (feature specifications)
+    ROADMAP.md              (development phases)
 
 EXAMPLES:
     speckit scaffold            # Create structure (auto-detect type)
@@ -106,9 +110,11 @@ cmd_scaffold_preview() {
     ".specify/discovery"
     ".specify/memory"
     ".specify/memory/adrs"
+    ".specify/memory/pdrs"
     ".specify/templates"
-    ".specify/scripts"
-    ".specify/scripts/bash"
+    ".specify/phases"
+    ".specify/history"
+    ".specify/issues"
     ".specify/archive"
     "specs"
   )
@@ -131,6 +137,7 @@ cmd_scaffold_preview() {
     ".specify/manifest.json"
     ".specify/memory/constitution.md"
     ".specify/memory/tech-stack.md"
+    "ROADMAP.md"
   )
 
   for file in "${files[@]}"; do
@@ -662,9 +669,11 @@ cmd_status() {
     ".specify/discovery"
     ".specify/memory"
     ".specify/memory/adrs"
+    ".specify/memory/pdrs"
     ".specify/templates"
-    ".specify/scripts"
-    ".specify/scripts/bash"
+    ".specify/phases"
+    ".specify/history"
+    ".specify/issues"
     ".specify/archive"
     "specs"
   )
@@ -686,6 +695,7 @@ cmd_status() {
     ".specify/discovery/decisions.md"
     ".specify/orchestration-state.json"
     ".specify/manifest.json"
+    "ROADMAP.md"
   )
 
   local missing_files=()
@@ -772,8 +782,11 @@ cmd_scaffold() {
   local dirs=(
     ".specify/discovery"
     ".specify/memory/adrs"
+    ".specify/memory/pdrs"
     ".specify/templates"
-    ".specify/scripts/bash"
+    ".specify/phases"
+    ".specify/history"
+    ".specify/issues"
     ".specify/archive"
     "specs"
   )
@@ -834,19 +847,23 @@ cmd_scaffold() {
       timestamp="$(iso_timestamp)"
       cat > "$json_state_file" << EOF
 {
-  "version": "2.0",
+  "schema_version": "2.0",
   "config": {
     "roadmap_path": "ROADMAP.md",
     "memory_path": ".specify/memory/",
     "specs_path": "specs/",
-    "scripts_path": ".specify/scripts/",
+    "scripts_path": "~/.claude/speckit-system/scripts/",
     "templates_path": ".specify/templates/"
   },
   "project": {
+    "id": null,
     "name": null,
+    "path": null,
     "description": null,
     "type": null,
-    "criticality": null
+    "criticality": null,
+    "created_at": "$timestamp",
+    "updated_at": "$timestamp"
   },
   "interview": {
     "status": "not_started",
@@ -858,23 +875,30 @@ cmd_scaffold() {
     "completed_at": null
   },
   "orchestration": {
-    "phase_number": null,
-    "phase_name": null,
-    "branch": null,
-    "step": null,
-    "status": "not_started",
-    "steps": {
-      "specify": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "clarify": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "plan": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "tasks": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "analyze": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "checklist": { "status": "pending", "completed_at": null, "artifacts": [] },
-      "implement": { "status": "pending", "completed_at": null, "tasks_completed": 0, "tasks_total": 0, "artifacts": [] },
-      "verify": { "status": "pending", "completed_at": null, "artifacts": [] }
+    "phase": {
+      "number": null,
+      "name": null,
+      "status": "not_started"
+    },
+    "step": {
+      "current": null,
+      "index": 0
+    },
+    "progress": {
+      "tasks_completed": 0,
+      "tasks_total": 0
     }
   },
-  "history": [],
+  "health": {
+    "status": "healthy",
+    "last_check": "$timestamp",
+    "issues": []
+  },
+  "actions": {
+    "available": ["start_phase"],
+    "pending": [],
+    "history": []
+  },
   "last_updated": "$timestamp"
 }
 EOF
@@ -883,6 +907,60 @@ EOF
   fi
 
   print_status "ok" "Created state file"
+
+  # Create stub ROADMAP.md
+  local roadmap_file="${repo_root}/ROADMAP.md"
+  if [[ ! -f "$roadmap_file" ]] || [[ "$force" == "true" ]]; then
+    local project_name
+    project_name=$(basename "$repo_root")
+    cat > "$roadmap_file" << EOF
+# ${project_name} Development Roadmap
+
+> **Source of Truth**: This document defines all feature phases, their order, and completion status.
+> Work proceeds through phases sequentially. Each phase produces a deployable increment.
+
+**Project**: ${project_name}
+**Created**: $(date +%Y-%m-%d)
+**Schema Version**: 2.1 (ABBC numbering)
+**Status**: Not Started
+
+---
+
+## Phase Numbering (v2.1)
+
+Phases use **ABBC** format:
+- **A** = Milestone (0-9) - Major version or project stage
+- **BB** = Phase (01-99) - Sequential work within milestone
+- **C** = Hotfix (0-9) - Insert slot (0 = main phase, 1-9 = hotfixes/inserts)
+
+---
+
+## Phase Overview
+
+| Phase | Name | Status | Verification Gate |
+|-------|------|--------|-------------------|
+| 0010 | (first-phase) | ⬜ Not Started | (define gate) |
+
+**Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
+
+---
+
+## Phases
+
+### 0010 - (First Phase Name)
+
+**Goal**: (Define the goal)
+
+**Scope**:
+- [ ] Task 1
+- [ ] Task 2
+
+**Verification Gate**: (How to verify completion)
+
+EOF
+    log_debug "Created: ROADMAP.md"
+    print_status "ok" "Created ROADMAP.md stub"
+  fi
 
   # Initialize version manifest
   local manifest_file="${specify_dir}/manifest.json"
@@ -926,37 +1004,9 @@ EOF
     fi
   fi
 
-  # Copy scripts
-  if [[ "$skip_scripts" != "true" ]]; then
-    local src_scripts="${SPECKIT_SYSTEM_DIR}/scripts/bash"
-    local dst_scripts="${specify_dir}/scripts/bash"
-
-    if [[ -d "$src_scripts" ]]; then
-      local copied=0
-      # Use find to handle globs safely
-      while IFS= read -r -d '' file; do
-        if [[ -f "$file" ]]; then
-          local filename
-          filename=$(basename "$file")
-          local dst_file="${dst_scripts}/${filename}"
-
-          # Copy with -n (no clobber) unless force
-          if [[ "$force" == "true" ]] || [[ ! -f "$dst_file" ]]; then
-            cp "$file" "$dst_file"
-            chmod +x "$dst_file"
-            ((copied++)) || true
-          fi
-        fi
-      done < <(find "$src_scripts" -maxdepth 1 -name "*.sh" -print0 2>/dev/null)
-      if [[ $copied -gt 0 ]]; then
-        print_status "ok" "Copied $copied script(s)"
-      else
-        print_status "skip" "Scripts already exist (use --force to overwrite)"
-      fi
-    else
-      print_status "warn" "No user-scope scripts found"
-    fi
-  fi
+  # Scripts are NOT copied - central installation is used
+  # The CLI at ~/.claude/speckit-system/bin/speckit handles script execution
+  # Project-local scripts in .specify/scripts/bash/ are deprecated
 
   # Summary output (first 3 lines are user-critical)
   print_summary "ok" \
