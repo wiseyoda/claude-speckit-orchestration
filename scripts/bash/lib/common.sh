@@ -592,6 +592,69 @@ validate_phase_number() {
   esac
 }
 
+# Normalize phase number with fuzzy matching
+# Tries exact match first, then tries appending 0 for 3-digit inputs
+# This handles both v1→v2 migration (001→0010) and partial matches (014→0140)
+#
+# Usage: normalize_phase_fuzzy "014" "/path/to/ROADMAP.md"
+# Returns: The matched phase number (e.g., "0140") or empty string if not found
+#
+# Examples:
+#   normalize_phase_fuzzy "014" "$roadmap"  -> "0140" (if 0140 exists)
+#   normalize_phase_fuzzy "0140" "$roadmap" -> "0140" (exact match)
+#   normalize_phase_fuzzy "001" "$roadmap"  -> "0010" (v1→v2 migration)
+#   normalize_phase_fuzzy "14" "$roadmap"   -> "0140" (if 0140 exists)
+#
+normalize_phase_fuzzy() {
+  local input="$1"
+  local roadmap_path="$2"
+
+  # Strip any non-numeric characters (e.g., "Phase 014" → "014")
+  input=$(echo "$input" | tr -cd '0-9')
+
+  if [[ -z "$input" ]]; then
+    return 1
+  fi
+
+  # Convert to number (handles leading zeros) and back to 4-digit format
+  local num
+  num=$((10#${input})) 2>/dev/null || return 1
+
+  # Try 4-digit format first (exact match)
+  local phase4
+  phase4=$(printf "%04d" "$num")
+
+  if [[ -n "$roadmap_path" ]] && [[ -f "$roadmap_path" ]]; then
+    # Check if exact 4-digit phase exists
+    if grep -qE "^\|[[:space:]]*${phase4}[[:space:]]*\|" "$roadmap_path" 2>/dev/null; then
+      echo "$phase4"
+      return 0
+    fi
+
+    # Fuzzy match: if input looks like a 3-digit v1 phase or truncated v2 phase,
+    # try appending 0 (e.g., "014" → "0140", "001" → "0010")
+    # This handles:
+    #   - v1 migration: 001, 002, 003 → 0010, 0020, 0030
+    #   - Truncated input: 014, 015 → 0140, 0150
+    if [[ $num -lt 1000 ]]; then
+      local phase_expanded
+      phase_expanded=$(printf "%04d" $((num * 10)))
+      if grep -qE "^\|[[:space:]]*${phase_expanded}[[:space:]]*\|" "$roadmap_path" 2>/dev/null; then
+        log_debug "Fuzzy match: $input → $phase_expanded"
+        echo "$phase_expanded"
+        return 0
+      fi
+    fi
+
+    # No match found in roadmap
+    return 1
+  fi
+
+  # No roadmap provided, just return normalized 4-digit format
+  echo "$phase4"
+  return 0
+}
+
 # =============================================================================
 # Input Sanitization
 # =============================================================================

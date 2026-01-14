@@ -115,26 +115,49 @@ ensure_history_dir() {
   mkdir -p "$history_dir"
 }
 
-# Find phase file by number
+# Find phase file by number with fuzzy matching
+# Tries exact match first, then fuzzy (014 → 0140)
 # Returns the full path or empty string
 find_phase_file() {
   local phase="$1"
   local phases_dir
   phases_dir="$(get_phases_dir)"
 
-  # Normalize to 4 digits
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
+  # Strip non-numeric characters and convert to number
+  local input
+  input=$(echo "$phase" | tr -cd '0-9')
+  local num
+  num=$((10#${input})) 2>/dev/null || return 1
 
-  # Look for phase file
+  # Try 4-digit format first (exact match)
+  local phase4
+  phase4=$(printf "%04d" "$num")
+
   local found
-  found=$(find "$phases_dir" -maxdepth 1 -name "${phase}-*.md" 2>/dev/null | head -1)
+  found=$(find "$phases_dir" -maxdepth 1 -name "${phase4}-*.md" 2>/dev/null | head -1)
 
   if [[ -n "$found" ]]; then
     echo "$found"
+    return 0
   fi
+
+  # Fuzzy match: try appending 0 (e.g., "014" → "0140")
+  if [[ $num -lt 1000 ]]; then
+    local phase_expanded
+    phase_expanded=$(printf "%04d" $((num * 10)))
+    found=$(find "$phases_dir" -maxdepth 1 -name "${phase_expanded}-*.md" 2>/dev/null | head -1)
+    if [[ -n "$found" ]]; then
+      log_debug "Fuzzy match: $phase → $phase_expanded"
+      echo "$found"
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
-# Get phase info from ROADMAP.md table
+# Get phase info from ROADMAP.md table with fuzzy matching
+# Tries exact match first, then fuzzy (014 → 0140)
 # Returns: phase_num|name|status
 get_phase_from_roadmap() {
   local phase="$1"
@@ -145,10 +168,15 @@ get_phase_from_roadmap() {
     return 1
   fi
 
-  # Normalize to 4 digits
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
+  # Use fuzzy matching to find the phase
+  local matched_phase
+  matched_phase=$(normalize_phase_fuzzy "$phase" "$roadmap_path")
 
-  grep -E "^\|[[:space:]]*${phase}[[:space:]]*\|" "$roadmap_path" 2>/dev/null | head -1 | while IFS='|' read -r _ num name status _; do
+  if [[ -z "$matched_phase" ]]; then
+    return 1
+  fi
+
+  grep -E "^\|[[:space:]]*${matched_phase}[[:space:]]*\|" "$roadmap_path" 2>/dev/null | head -1 | while IFS='|' read -r _ num name status _; do
     num=$(echo "$num" | tr -d ' ')
     name=$(echo "$name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     status=$(echo "$status" | tr -d ' ')
@@ -156,7 +184,7 @@ get_phase_from_roadmap() {
   done
 }
 
-# Check if phase is in history
+# Check if phase is in history with fuzzy matching
 phase_in_history() {
   local phase="$1"
   local history_file
@@ -166,22 +194,55 @@ phase_in_history() {
     return 1
   fi
 
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
-  grep -qE "^##[[:space:]]*${phase}[[:space:]]*-" "$history_file" 2>/dev/null
+  # Strip non-numeric and convert to number
+  local input
+  input=$(echo "$phase" | tr -cd '0-9')
+  local num
+  num=$((10#${input})) 2>/dev/null || return 1
+
+  # Try 4-digit format first
+  local phase4
+  phase4=$(printf "%04d" "$num")
+
+  if grep -qE "^##[[:space:]]*${phase4}[[:space:]]*-" "$history_file" 2>/dev/null; then
+    return 0
+  fi
+
+  # Fuzzy match: try appending 0
+  if [[ $num -lt 1000 ]]; then
+    local phase_expanded
+    phase_expanded=$(printf "%04d" $((num * 10)))
+    if grep -qE "^##[[:space:]]*${phase_expanded}[[:space:]]*-" "$history_file" 2>/dev/null; then
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
-# Extract phase section from ROADMAP.md
+# Extract phase section from ROADMAP.md with fuzzy matching
 extract_phase_section() {
   local phase="$1"
   local roadmap_path
   roadmap_path="$(get_repo_root)/ROADMAP.md"
 
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
+  # Use fuzzy matching to find the phase
+  local matched_phase
+  matched_phase=$(normalize_phase_fuzzy "$phase" "$roadmap_path")
 
-  awk -v phase="$phase" '
-    /^###[[:space:]]*'"$phase"'[[:space:]]*-/ { found = 1 }
+  if [[ -z "$matched_phase" ]]; then
+    # Fall back to simple normalization for inline section search
+    local input
+    input=$(echo "$phase" | tr -cd '0-9')
+    local num
+    num=$((10#${input})) 2>/dev/null || return 1
+    matched_phase=$(printf "%04d" "$num")
+  fi
+
+  awk -v phase="$matched_phase" '
+    /^###[[:space:]]*'"$matched_phase"'[[:space:]]*-/ { found = 1 }
     found {
-      if (/^###[[:space:]]*[0-9]/ && !/^###[[:space:]]*'"$phase"'/) exit
+      if (/^###[[:space:]]*[0-9]/ && !/^###[[:space:]]*'"$matched_phase"'/) exit
       if (/^##[[:space:]]/ && !/^###/) exit
       if (/^---$/ && NR > start_line + 1) exit
       print
@@ -190,7 +251,7 @@ extract_phase_section() {
   ' "$roadmap_path"
 }
 
-# Extract phase section from HISTORY.md
+# Extract phase section from HISTORY.md with fuzzy matching
 extract_history_section() {
   local phase="$1"
   local history_file
@@ -200,12 +261,31 @@ extract_history_section() {
     return 1
   fi
 
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
+  # Strip non-numeric and convert to number
+  local input
+  input=$(echo "$phase" | tr -cd '0-9')
+  local num
+  num=$((10#${input})) 2>/dev/null || return 1
 
-  awk -v phase="$phase" '
-    /^##[[:space:]]*'"$phase"'[[:space:]]*-/ { found = 1 }
+  # Try 4-digit format first
+  local matched_phase
+  matched_phase=$(printf "%04d" "$num")
+
+  # Check if it exists, if not try fuzzy
+  if ! grep -qE "^##[[:space:]]*${matched_phase}[[:space:]]*-" "$history_file" 2>/dev/null; then
+    if [[ $num -lt 1000 ]]; then
+      local phase_expanded
+      phase_expanded=$(printf "%04d" $((num * 10)))
+      if grep -qE "^##[[:space:]]*${phase_expanded}[[:space:]]*-" "$history_file" 2>/dev/null; then
+        matched_phase="$phase_expanded"
+      fi
+    fi
+  fi
+
+  awk -v phase="$matched_phase" '
+    /^##[[:space:]]*'"$matched_phase"'[[:space:]]*-/ { found = 1 }
     found {
-      if (/^##[[:space:]]*[0-9]/ && !/^##[[:space:]]*'"$phase"'/) exit
+      if (/^##[[:space:]]*[0-9]/ && !/^##[[:space:]]*'"$matched_phase"'/) exit
       print
     }
   ' "$history_file"
@@ -625,14 +705,20 @@ No detailed content available."
   fi
 
   # Append to history (after the header)
+  # Write content to temp file first (awk -v can't handle multi-line strings)
+  local content_file
+  content_file=$(mktemp)
+  echo "$history_content" > "$content_file"
+
   local temp_file
   temp_file=$(mktemp)
 
-  awk -v content="$history_content" '
+  awk -v content_file="$content_file" '
     /^---$/ && !inserted {
       print
       print ""
-      print content
+      while ((getline line < content_file) > 0) print line
+      close(content_file)
       print ""
       print "---"
       inserted = 1
@@ -641,6 +727,7 @@ No detailed content available."
     { print }
   ' "$history_file" > "$temp_file"
 
+  rm -f "$content_file"
   mv "$temp_file" "$history_file"
 
   # Remove phase file if it exists

@@ -159,6 +159,25 @@ status_to_emoji() {
   esac
 }
 
+# Convert status string to display text
+status_to_text() {
+  local status="$1"
+  case "$status" in
+    not_started|pending|notstarted)
+      echo "Not Started"
+      ;;
+    in_progress|inprogress|progress|wip)
+      echo "In Progress"
+      ;;
+    complete|completed|done)
+      echo "Complete"
+      ;;
+    *)
+      echo "$status"
+      ;;
+  esac
+}
+
 # Convert emoji to status string
 emoji_to_status() {
   local emoji="$1"
@@ -374,42 +393,36 @@ cmd_update() {
   local roadmap_path
   roadmap_path="$(get_roadmap_path)"
 
-  # Normalize phase number to 4 digits for 2.1 format
-  phase=$(printf "%04d" "$((10#${phase}))" 2>/dev/null || echo "$phase")
+  # Use fuzzy matching to find the phase
+  # This handles: "014" → "0140", "001" → "0010", etc.
+  local matched_phase
+  matched_phase=$(normalize_phase_fuzzy "$phase" "$roadmap_path")
 
-  # Convert status to emoji
+  if [[ -z "$matched_phase" ]]; then
+    log_error "Phase not found: $phase"
+    echo "Hint: Use 4-digit format (e.g., 0140 not 014)"
+    exit 1
+  fi
+
+  # Use the matched phase
+  phase="$matched_phase"
+
+  # Convert status to emoji and text
   local emoji
   emoji=$(status_to_emoji "$new_status")
-
-  # Check if phase exists (support both 3 and 4 digit)
-  if ! grep -qE "^\|[[:space:]]*${phase}[[:space:]]*\|" "$roadmap_path"; then
-    # Try 3-digit format for backwards compatibility (v2.0 -> v2.1)
-    # Only works for "main" phases that are multiples of 10 (0010 -> 001, 0020 -> 002)
-    local phase_num=$((10#${phase}))
-    if [[ $((phase_num % 10)) -eq 0 ]]; then
-      local phase3
-      phase3=$(printf "%03d" "$((phase_num / 10))" 2>/dev/null || echo "")
-      if grep -qE "^\|[[:space:]]*${phase3}[[:space:]]*\|" "$roadmap_path"; then
-        phase="$phase3"
-      else
-        log_error "Phase not found: $phase"
-        exit 1
-      fi
-    else
-      log_error "Phase not found: $phase"
-      exit 1
-    fi
-  fi
+  local status_text
+  status_text=$(status_to_text "$new_status")
 
   # Update the status in the table
   # Match: | 001 | Name | STATUS |
-  # Replace the status column with new emoji
+  # Replace the status column with new emoji AND text
   local temp_file
   temp_file=$(mktemp)
 
   # Use sed to update the status in the phase line
-  # This handles the table row format: | 001 | Name | ⬜ Status | Gate |
-  sed -E "s/^(\|[[:space:]]*${phase}[[:space:]]*\|[^|]+\|)[[:space:]]*(⬜|🔄|✅)[[:space:]]*([^|]*\|)/\1 ${emoji} \3/" "$roadmap_path" > "$temp_file"
+  # This handles the table row format: | 001 | Name | ⬜ Status Text | Gate |
+  # Replace both the emoji and the status text to avoid inconsistencies like "✅ Not Started"
+  sed -E "s/^(\|[[:space:]]*${phase}[[:space:]]*\|[^|]+\|)[[:space:]]*(⬜|🔄|✅)[[:space:]]*[^|]*\|/\1 ${emoji} ${status_text} |/" "$roadmap_path" > "$temp_file"
 
   mv "$temp_file" "$roadmap_path"
 
