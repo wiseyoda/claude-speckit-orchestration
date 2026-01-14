@@ -14,7 +14,7 @@
     "roadmap_path": "ROADMAP.md",
     "memory_path": ".specify/memory/",
     "specs_path": "specs/",
-    "scripts_path": ".specify/scripts/",
+    "scripts_path": "~/.claude/speckit-system/scripts/",
     "templates_path": ".specify/templates/"
   },
   "interview": {
@@ -28,20 +28,20 @@
   },
   "orchestration": {
     "phase": {
-      "number": null,
-      "name": null,
+      "number": "0060",
+      "name": "0060-constitution-compliance",
       "branch": null,
-      "status": "not_started"
+      "status": "in_progress"
     },
     "step": {
-      "current": null,
+      "current": "verify",
       "index": 0,
-      "status": "not_started"
+      "status": "pending"
     },
     "progress": {
-      "tasks_completed": 0,
-      "tasks_total": 0,
-      "percentage": 0
+      "tasks_completed": 58,
+      "tasks_total": 58,
+      "percentage": 100
     }
   },
   "health": {
@@ -104,5 +104,5 @@
     "last_sync": null,
     "notifications": []
   },
-  "last_updated": "2026-01-11T22:15:18Z"
+  "last_updated": "2026-01-14T15:46:30Z"
 }

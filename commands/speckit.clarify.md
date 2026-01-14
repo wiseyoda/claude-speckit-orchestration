@@ -29,6 +29,11 @@ Execution steps:
    - If JSON parsing fails, abort and instruct user to re-run `/speckit.specify` or verify feature branch environment.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
+   **Load discovery context (if exists)**: Check for `FEATURE_DIR/discovery.md`. If present:
+   - Load the discovery findings (codebase examination, confirmed understanding)
+   - Use this context to inform ambiguity detection and skip questions already answered during DISCOVER phase
+   - Reference discovery findings when providing recommendations for clarification options
+
 2. Load the current spec file. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing. Produce an internal coverage map used for prioritization (do not output raw map unless no questions will be asked).
 
    Functional Scope & Behavior:

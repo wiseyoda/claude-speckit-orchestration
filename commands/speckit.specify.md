@@ -27,6 +27,13 @@ The text the user typed after `/speckit.specify` in the triggering message **is*
 
 Given that feature description, do this:
 
+**0. Load discovery context (if exists)**: Before generating the spec, check for `specs/{phase}/discovery.md`:
+   - If present, load the discovery findings to inform specification
+   - Use confirmed understanding from DISCOVER phase as the primary source of truth
+   - Reference codebase examination results when writing requirements
+   - Skip clarification questions that were already answered during DISCOVER
+   - If discovery.md does not exist (e.g., `--no-discovery` was used), proceed with standard flow
+
 1. **Generate a concise short name** (2-4 words) for the branch:
    - Analyze the feature description and extract the most meaningful keywords
    - Create a 2-4 word short name that captures the essence of the feature

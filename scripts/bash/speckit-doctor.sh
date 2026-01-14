@@ -71,6 +71,7 @@ EOF
 ISSUES=""
 WARNINGS=""
 FIXED=""
+SUGGESTIONS=""
 
 add_issue() {
   if [[ -n "$ISSUES" ]]; then
@@ -93,6 +94,19 @@ add_fixed() {
     FIXED="${FIXED}"$'\n'"$1"
   else
     FIXED="$1"
+  fi
+}
+
+# Add a suggested fix command (deduplicates)
+add_suggestion() {
+  local cmd="$1"
+  # Check if already suggested (avoid duplicates)
+  if [[ -n "$SUGGESTIONS" ]]; then
+    if ! echo "$SUGGESTIONS" | grep -qF "$cmd"; then
+      SUGGESTIONS="${SUGGESTIONS}"$'\n'"$cmd"
+    fi
+  else
+    SUGGESTIONS="$cmd"
   fi
 }
 
@@ -193,6 +207,8 @@ check_project() {
       if [[ "$fix" == "true" ]]; then
         mkdir -p "${specify_dir}/${dir}"
         add_fixed "Created .specify/${dir}/"
+      else
+        add_suggestion "speckit doctor --fix"
       fi
     fi
   done
@@ -208,6 +224,8 @@ check_project() {
       if [[ "$fix" == "true" ]]; then
         mkdir -p "${specify_dir}/memory/${subdir}"
         add_fixed "Created .specify/memory/${subdir}/"
+      else
+        add_suggestion "speckit doctor --fix"
       fi
     fi
   done
@@ -234,6 +252,7 @@ check_project() {
   else
     print_status warn "ROADMAP.md missing"
     add_warning "ROADMAP.md not found"
+    add_suggestion "speckit doctor --fix"
 
     if [[ "$fix" == "true" ]]; then
       local project_name
@@ -386,7 +405,7 @@ check_manifest() {
         print_status error "Failed to create manifest"
       fi
     else
-      log_info "Run 'speckit manifest init' or 'speckit doctor --fix' to create"
+      add_suggestion "speckit doctor --fix"
     fi
     return
   fi
@@ -430,7 +449,7 @@ check_manifest() {
       if [[ "$cli_version" != "unknown" && "$cli_version" != "$manifest_speckit_version" ]]; then
         print_status warn "CLI version mismatch: manifest=${manifest_speckit_version}, installed=${cli_version}"
         add_warning "Manifest version differs from installed CLI"
-        log_info "Run 'speckit manifest upgrade' to update manifest"
+        add_suggestion "speckit manifest upgrade"
       fi
     fi
   else
@@ -465,7 +484,7 @@ check_manifest() {
       else
         print_status error "CLI too old: v$cli_version < v$min_cli required"
         add_issue "CLI version $cli_version below required minimum $min_cli"
-        log_info "Run './install.sh --upgrade' to update SpecKit"
+        add_suggestion "./install.sh --upgrade"
       fi
     fi
   fi
@@ -495,7 +514,7 @@ check_manifest() {
   else
     print_status warn "Manifest validation has warnings"
     add_warning "Manifest has validation issues"
-    log_info "Run 'speckit manifest validate' for details"
+    add_suggestion "speckit manifest validate"
   fi
 }
 
@@ -548,6 +567,8 @@ check_paths() {
           jq '.config.scripts_path = "~/.claude/speckit-system/scripts/"' "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
           add_fixed "Updated scripts_path to central installation"
           print_status ok "Updated scripts_path to central"
+        else
+          add_suggestion "speckit doctor --fix"
         fi
       else
         print_status warn "$key: $value (non-standard path)"
@@ -672,12 +693,13 @@ check_templates() {
   # This ensures doctor uses the same logic as the templates command
   local templates_output
   if templates_output=$(bash "${SCRIPT_DIR}/speckit-templates.sh" check 2>/dev/null); then
-    # Parse the output - count outdated templates
-    local outdated current
+    # Parse the output - count outdated and new templates
+    local outdated current new_templates
     outdated=$(echo "$templates_output" | grep -c '^[[:space:]]*!' 2>/dev/null) || outdated=0
     current=$(echo "$templates_output" | grep -c '^[[:space:]]*✓' 2>/dev/null) || current=0
+    new_templates=$(echo "$templates_output" | grep -c '^[[:space:]]*◯' 2>/dev/null) || new_templates=0
 
-    if [[ "$outdated" -gt 0 ]]; then
+    if [[ "$outdated" -gt 0 || "$new_templates" -gt 0 ]]; then
       # Show individual template status
       while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*✓ ]]; then
@@ -695,11 +717,19 @@ check_templates() {
           local info
           info=$(echo "$line" | sed 's/^[[:space:]]*![[:space:]]*//')
           print_status warn "$info"
+        elif [[ "$line" =~ ^[[:space:]]*◯ ]]; then
+          # New template not in project: "  ◯ filename.md (vX.X) - not in project"
+          local info
+          info=$(echo "$line" | sed 's/^[[:space:]]*◯[[:space:]]*//')
+          print_status pending "$info"
         fi
       done <<< "$templates_output"
 
-      add_warning "$outdated template(s) have updates available"
-      log_info "Run 'speckit templates update-all' to update"
+      [[ "$outdated" -gt 0 ]] && add_warning "$outdated template(s) have updates available"
+      if [[ "$new_templates" -gt 0 ]]; then
+        add_issue "$new_templates required template(s) missing from project"
+      fi
+      add_suggestion "speckit templates sync"
     else
       # All current - show summary
       print_status ok "All $current template(s) are current"
@@ -793,7 +823,7 @@ check_roadmap() {
   if $has_3digit && $has_4digit; then
     print_status error "ROADMAP has mixed format (both 3-digit and 4-digit phases)"
     add_issue "ROADMAP.md has inconsistent phase number format"
-    log_info "Run 'speckit migrate roadmap --dry-run' to preview fix"
+    add_suggestion "speckit migrate roadmap --dry-run"
   elif $has_4digit; then
     print_status ok "ROADMAP format: 2.1 (4-digit phases)"
 
@@ -825,12 +855,12 @@ check_roadmap() {
           add_issue "Modular format migration failed"
         fi
       else
-        log_info "Run 'speckit phase migrate --collapse' to convert"
+        add_suggestion "speckit phase migrate --collapse"
       fi
     elif $has_inline_phases && $has_phase_files; then
       print_status warn "ROADMAP has both inline phases and phase files (mixed state)"
       add_warning "ROADMAP.md has inline phases but .specify/phases/ also has files"
-      log_info "Run 'speckit phase migrate --collapse' to complete migration"
+      add_suggestion "speckit phase migrate --collapse"
     elif $has_phase_files; then
       print_status ok "ROADMAP uses modular format (phases in .specify/phases/)"
     fi
@@ -849,7 +879,7 @@ check_roadmap() {
         add_issue "ROADMAP migration failed"
       fi
     else
-      log_info "Run 'speckit migrate roadmap' or 'speckit doctor --fix' to upgrade"
+      add_suggestion "speckit migrate roadmap"
     fi
   else
     print_status ok "ROADMAP exists (no phases defined yet)"
@@ -1105,8 +1135,17 @@ show_summary() {
     done <<< "$WARNINGS"
   fi
 
+  # Show suggested fix commands
+  if [[ -n "$SUGGESTIONS" ]]; then
+    echo ""
+    echo -e "${CYAN}Suggested fixes:${RESET}"
+    while IFS= read -r cmd; do
+      [[ -n "$cmd" ]] && echo "  ${DIM}\$${RESET} $cmd"
+    done <<< "$SUGGESTIONS"
+  fi
+
   if is_json_output; then
-    local issues_json warnings_json fixed_json
+    local issues_json warnings_json fixed_json suggestions_json
     if [[ -n "$ISSUES" ]]; then
       issues_json=$(echo "$ISSUES" | jq -R -s 'split("\n") | map(select(. != ""))')
     else
@@ -1122,9 +1161,14 @@ show_summary() {
     else
       fixed_json="[]"
     fi
+    if [[ -n "$SUGGESTIONS" ]]; then
+      suggestions_json=$(echo "$SUGGESTIONS" | jq -R -s 'split("\n") | map(select(. != ""))')
+    else
+      suggestions_json="[]"
+    fi
 
     echo ""
-    echo "{\"issues\": $issues_json, \"warnings\": $warnings_json, \"fixed\": $fixed_json}"
+    echo "{\"issues\": $issues_json, \"warnings\": $warnings_json, \"fixed\": $fixed_json, \"suggestions\": $suggestions_json}"
   fi
 
   # Return appropriate exit code

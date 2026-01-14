@@ -46,6 +46,9 @@ COMMANDS:
     update-all          Update all outdated templates
                         Creates backups of existing files
 
+    sync                Sync all templates (update outdated + copy new)
+                        Ensures project has all system templates
+
     diff <file>         Show differences between project and system template
 
     list                List all available system templates
@@ -339,6 +342,75 @@ cmd_update_all() {
   fi
 }
 
+cmd_sync() {
+  local no_backup="${1:-false}"
+
+  if [[ ! -d "$SYSTEM_TEMPLATES" ]]; then
+    log_error "System templates not found"
+    exit 1
+  fi
+
+  local project_templates
+  project_templates="$(get_project_templates)"
+
+  # Ensure project templates directory exists
+  mkdir -p "$project_templates"
+
+  local updated=0
+  local added=0
+
+  while IFS= read -r sys_template; do
+    local filename
+    filename=$(basename "$sys_template")
+    local proj_template="${project_templates}/${filename}"
+
+    local sys_version
+    sys_version=$(get_template_version "$sys_template")
+
+    if [[ -f "$proj_template" ]]; then
+      # Existing template - check if update needed
+      local proj_version
+      proj_version=$(get_template_version "$proj_template")
+
+      local should_update=false
+
+      if [[ -n "$sys_version" && -n "$proj_version" ]]; then
+        local cmp
+        cmp=$(compare_versions "$sys_version" "$proj_version")
+        [[ "$cmp" == "1" ]] && should_update=true
+      elif [[ "$sys_template" -nt "$proj_template" ]]; then
+        should_update=true
+      fi
+
+      if [[ "$should_update" == "true" ]]; then
+        if [[ "$no_backup" != "true" ]]; then
+          create_backup "$proj_template" >/dev/null
+        fi
+        cp "$sys_template" "$proj_template"
+        ((updated++)) || true
+        print_status ok "Updated: $filename (v${proj_version:-?} → v${sys_version:-?})"
+      fi
+    else
+      # New template - copy it
+      cp "$sys_template" "$proj_template"
+      ((added++)) || true
+      print_status ok "Added: $filename (v${sys_version:-?})"
+    fi
+  done < <(find "$SYSTEM_TEMPLATES" -maxdepth 1 \( -name "*.md" -o -name "*.yaml" \) -type f 2>/dev/null)
+
+  echo ""
+  if [[ $updated -gt 0 || $added -gt 0 ]]; then
+    [[ $updated -gt 0 ]] && log_success "Updated $updated template(s)"
+    [[ $added -gt 0 ]] && log_success "Added $added new template(s)"
+  else
+    log_info "All templates already synced"
+  fi
+
+  if is_json_output; then
+    echo "{\"updated\": $updated, \"added\": $added}"
+  fi
+}
+
 cmd_diff() {
   local filename="$1"
 
@@ -493,6 +565,9 @@ main() {
       ;;
     update-all)
       cmd_update_all "$no_backup"
+      ;;
+    sync)
+      cmd_sync "$no_backup"
       ;;
     diff)
       cmd_diff "${1:-}"
