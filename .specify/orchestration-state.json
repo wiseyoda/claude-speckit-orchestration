@@ -28,20 +28,26 @@
   },
   "orchestration": {
     "phase": {
-      "number": null,
-      "name": null,
-      "branch": null,
-      "status": "not_started"
+      "number": "1030",
+      "name": "project-detail-views",
+      "branch": "1030-project-detail-views",
+      "status": "awaiting_user_gate"
     },
     "step": {
-      "current": null,
-      "index": 0,
-      "status": "not_started"
+      "current": "verify",
+      "index": "8",
+      "status": "in_progress"
     },
     "progress": {
-      "tasks_completed": 0,
-      "tasks_total": 0,
-      "percentage": 0
+      "tasks_completed": 29,
+      "tasks_total": 29,
+      "percentage": 100
+    },
+    "steps": {
+      "implement": {
+        "tasks_completed": 29,
+        "tasks_total": 29
+      }
     }
   },
   "health": {
@@ -131,5 +137,5 @@
     "last_sync": null,
     "notifications": []
   },
-  "last_updated": "2026-01-17T15:03:29Z"
+  "last_updated": "2026-01-17T18:04:56Z"
 }

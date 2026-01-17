@@ -1,4 +1,4 @@
-import { initWatcher, addListener, getCurrentRegistry, getAllStates, startHeartbeat } from '@/lib/watcher';
+import { initWatcher, addListener, getCurrentRegistry, getAllStates, getAllTasks, startHeartbeat } from '@/lib/watcher';
 import type { SSEEvent } from '@speckit/shared';
 
 // Initialize watcher on first request
@@ -59,6 +59,17 @@ export async function GET(): Promise<Response> {
           timestamp: new Date().toISOString(),
           projectId,
           data: state,
+        });
+      }
+
+      // Send current tasks data for all projects
+      const tasks = await getAllTasks();
+      for (const [projectId, taskData] of tasks) {
+        send({
+          type: 'tasks',
+          timestamp: new Date().toISOString(),
+          projectId,
+          data: taskData,
         });
       }
 

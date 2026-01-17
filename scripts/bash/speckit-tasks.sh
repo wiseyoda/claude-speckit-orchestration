@@ -370,28 +370,37 @@ cmd_mark() {
     esac
   done
 
-  # Update state file if anything was marked
-  if [[ $marked -gt 0 ]]; then
-    local state_file
-    state_file="$(get_state_file)"
-    if [[ -f "$state_file" ]]; then
-      local counts
-      counts=$(count_tasks "$file")
-      local completed total
-      read -r completed total <<< "$counts"
+  # Always update state file to sync progress (even if no tasks newly marked)
+  local state_file
+  state_file="$(get_state_file)"
+  if [[ -f "$state_file" ]]; then
+    local counts
+    counts=$(count_tasks "$file")
+    local completed total
+    read -r completed total <<< "$counts"
 
-      # Update implement step in state
-      local state_temp
-      state_temp=$(mktemp)
-      jq --argjson completed "$completed" --argjson total "$total" --arg ts "$(iso_timestamp)" \
-        '.orchestration.steps.implement.tasks_completed = $completed |
-         .orchestration.steps.implement.tasks_total = $total |
-         .last_updated = $ts' "$state_file" > "$state_temp" 2>/dev/null && mv "$state_temp" "$state_file"
-
-      log_debug "Updated state: $completed/$total tasks complete"
+    # Calculate percentage
+    local percentage=0
+    if [[ "$total" -gt 0 ]]; then
+      percentage=$((completed * 100 / total))
     fi
 
-    # Sync progress dashboard
+    # Update both implement step and progress in state
+    local state_temp
+    state_temp=$(mktemp)
+    jq --argjson completed "$completed" --argjson total "$total" --argjson pct "$percentage" --arg ts "$(iso_timestamp)" \
+      '.orchestration.steps.implement.tasks_completed = $completed |
+       .orchestration.steps.implement.tasks_total = $total |
+       .orchestration.progress.tasks_completed = $completed |
+       .orchestration.progress.tasks_total = $total |
+       .orchestration.progress.percentage = $pct |
+       .last_updated = $ts' "$state_file" > "$state_temp" 2>/dev/null && mv "$state_temp" "$state_file"
+
+    log_debug "Updated state: $completed/$total tasks complete ($percentage%)"
+  fi
+
+  # Sync progress dashboard if anything was marked
+  if [[ $marked -gt 0 ]]; then
     cmd_sync "$file" >/dev/null 2>&1 || true
   fi
 

@@ -2,11 +2,12 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import { useSSE, type ConnectionStatus } from '@/hooks/use-sse';
-import type { Registry, OrchestrationState } from '@speckit/shared';
+import type { Registry, OrchestrationState, TasksData } from '@speckit/shared';
 
 interface ConnectionContextValue {
   registry: Registry | null;
   states: Map<string, OrchestrationState>;
+  tasks: Map<string, TasksData>;
   connectionStatus: ConnectionStatus;
   refetch: () => void;
 }

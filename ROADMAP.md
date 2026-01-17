@@ -41,7 +41,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 0060 | Constitution Compliance | ✅ Complete | 95%+ constitution compliance, three-line rule, critical bugs fixed |
 | 1010 | Core UI Scaffold | ✅ Complete | **USER GATE**: Dashboard starts, shows projects, dark mode works |
 | 1020 | Real-Time File Watching | ✅ Complete | **USER GATE**: CLI changes reflect in UI within 2s |
-| 1030 | Project Detail Views | ⬜ Not Started | **USER GATE**: Kanban and Timeline views work |
+| 1030 | Project Detail Views | ⏳ Awaiting User | **USER GATE**: Kanban and Timeline views work |
 | 1040 | CLI Actions from UI | ⬜ Not Started | **USER GATE**: Mark tasks, add backlog from UI |
 | 1050 | Agent SDK Integration | ⬜ Not Started | **USER GATE**: Spawn agent, see logs, answer questions |
 | 1060 | Operations Dashboard | ⬜ Not Started | **USER GATE**: Queue view, notifications, resource monitor |
