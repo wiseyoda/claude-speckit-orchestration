@@ -874,7 +874,12 @@ cmd_archive() {
   local next_number=""
   local next_name=""
   local next_json
-  next_json=$("$SPECKIT_HOME/bin/speckit" roadmap next --json 2>/dev/null || echo '{}')
+  # Use the script's own directory to find speckit (scripts/bash -> ../../bin/speckit)
+  local speckit_bin="${SCRIPT_DIR}/../../bin/speckit"
+  if [[ ! -x "$speckit_bin" ]]; then
+    speckit_bin="speckit"  # Fall back to PATH
+  fi
+  next_json=$("$speckit_bin" roadmap next --json 2>/dev/null || echo '{}')
   if [[ -n "$next_json" && "$next_json" != "{}" ]]; then
     next_number=$(echo "$next_json" | jq -r '.number // .next // empty' 2>/dev/null || echo "")
     next_name=$(echo "$next_json" | jq -r '.name // empty' 2>/dev/null || echo "")
