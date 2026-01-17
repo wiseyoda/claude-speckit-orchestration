@@ -239,6 +239,9 @@ export function ProjectCard({ project, state, tasks, isUnavailable = false }: Pr
   const hasTasks = totalTasks > 0
   const allTasksComplete = hasTasks && completedTasks === totalTasks
 
+  // Ready to merge: either state says so, or all tasks are complete
+  const isReadyToMerge = phase?.status === 'ready_to_merge' || allTasksComplete
+
   return (
     <Link href={`/projects/${project.id}`}>
       <Card
@@ -313,7 +316,7 @@ export function ProjectCard({ project, state, tasks, isUnavailable = false }: Pr
                         COMPLETE
                       </span>
                     </>
-                  ) : allTasksComplete ? (
+                  ) : isReadyToMerge ? (
                     <>
                       <span className="text-neutral-400">·</span>
                       <span className="text-xs text-purple-600 dark:text-purple-400 uppercase tracking-wide flex items-center gap-1">

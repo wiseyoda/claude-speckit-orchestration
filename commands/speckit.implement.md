@@ -254,6 +254,7 @@ Match implementation tasks to test tasks:
    ```bash
    # On success (all tasks completed):
    speckit state set "orchestration.step.status=complete"
+   speckit state set "orchestration.phase.status=ready_to_merge"
 
    # On error (implementation failed, tests failing, blocked):
    speckit state set "orchestration.step.status=failed"

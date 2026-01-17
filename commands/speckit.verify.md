@@ -399,6 +399,7 @@ speckit roadmap status
 ```bash
 # On success (all checks pass):
 speckit state set "orchestration.step.status=complete"
+speckit state set "orchestration.phase.status=ready_to_merge"
 
 # On verification failure (tasks incomplete, checklists failing):
 speckit state set "orchestration.step.status=failed"
