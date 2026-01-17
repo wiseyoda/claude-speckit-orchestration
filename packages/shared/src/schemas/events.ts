@@ -36,6 +36,12 @@ export const OrchestrationStateSchema = z.object({
       branch: z.string().nullish(),
       status: z.string().nullish(),
     }).nullish(),
+    // Next pending phase from ROADMAP (populated on archive)
+    next_phase: z.object({
+      number: z.string().nullish(),
+      name: z.string().nullish(),
+      description: z.string().nullish(),
+    }).nullish(),
     step: z.object({
       current: z.string().nullish(),
       index: z.union([z.number(), z.string()]).nullish(),

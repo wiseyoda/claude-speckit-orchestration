@@ -211,6 +211,7 @@ function getStatusBadge(status: ProjectStatus): {
 
 export function ProjectCard({ project, state, tasks, isUnavailable = false }: ProjectCardProps) {
   const phase = state?.orchestration?.phase
+  const nextPhase = state?.orchestration?.next_phase
   const step = state?.orchestration?.step
   const health = state?.health
 
@@ -281,10 +282,26 @@ export function ProjectCard({ project, state, tasks, isUnavailable = false }: Pr
                       </span>
                     </>
                   ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Ready to start
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Ready to start
+                      </span>
+                      {nextPhase?.number && (
+                        <>
+                          <span className="text-neutral-400">→</span>
+                          <span className={cn(
+                            "text-xs font-medium px-1.5 py-0.5 rounded",
+                            "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                          )}>
+                            {nextPhase.number}
+                          </span>
+                          <span className="text-sm text-neutral-500 dark:text-neutral-400 truncate">
+                            {nextPhase.name?.replace(/-/g, " ")}
+                          </span>
+                        </>
+                      )}
+                    </>
                   )}
                   {phaseComplete ? (
                     <>

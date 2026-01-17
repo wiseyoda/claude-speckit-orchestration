@@ -870,8 +870,20 @@ cmd_archive() {
   local timestamp
   timestamp="$(iso_timestamp)"
 
+  # Get next pending phase from ROADMAP (if available)
+  local next_number=""
+  local next_name=""
+  local next_json
+  next_json=$("$SPECKIT_HOME/bin/speckit" roadmap next --json 2>/dev/null || echo '{}')
+  if [[ -n "$next_json" && "$next_json" != "{}" ]]; then
+    next_number=$(echo "$next_json" | jq -r '.number // .next // empty' 2>/dev/null || echo "")
+    next_name=$(echo "$next_json" | jq -r '.name // empty' 2>/dev/null || echo "")
+  fi
+
   # Archive current phase to history and reset orchestration
-  jq --arg ts "$timestamp" '
+  jq --arg ts "$timestamp" \
+     --arg next_num "$next_number" \
+     --arg next_name "$next_name" '
     # Create archive entry from current phase
     .actions.history += [{
       "type": "phase_completed",
@@ -883,7 +895,7 @@ cmd_archive() {
       "tasks_total": .orchestration.progress.tasks_total
     }] |
 
-    # Reset orchestration for next phase
+    # Reset orchestration for next phase (include next_phase info if available)
     .orchestration = {
       "phase": {
         "number": null,
@@ -891,6 +903,10 @@ cmd_archive() {
         "branch": null,
         "status": "not_started"
       },
+      "next_phase": (if $next_num != "" then {
+        "number": $next_num,
+        "name": $next_name
+      } else null end),
       "step": {
         "current": null,
         "index": 0,
