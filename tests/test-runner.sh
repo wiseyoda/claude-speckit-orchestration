@@ -64,6 +64,11 @@ cleanup_test_env() {
   if [[ -n "$TEST_TEMP_DIR" && -d "$TEST_TEMP_DIR" ]]; then
     rm -rf "$TEST_TEMP_DIR"
   fi
+
+  # Clean up stale registry entries (projects in /tmp that no longer exist)
+  if command -v speckit &>/dev/null; then
+    speckit state registry clean >/dev/null 2>&1 || true
+  fi
 }
 
 # Log functions

@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { FolderGit2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,12 +24,12 @@ export function Sidebar({ className }: SidebarProps) {
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
           <li>
-            <a
+            <Link
               href="/"
               className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-neutral-200/50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
             >
               Projects
-            </a>
+            </Link>
           </li>
         </ul>
       </nav>

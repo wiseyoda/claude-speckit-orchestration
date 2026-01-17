@@ -14,6 +14,7 @@ export {
   HeartbeatEventSchema,
   RegistryEventSchema,
   StateEventSchema,
+  TasksEventSchema,
   OrchestrationStateSchema,
   type SSEEventType,
   type SSEEvent,
@@ -21,5 +22,15 @@ export {
   type HeartbeatEvent,
   type RegistryEvent,
   type StateEvent,
+  type TasksEvent,
   type OrchestrationState,
 } from './events';
+
+export {
+  TaskStatusSchema,
+  TaskSchema,
+  TasksDataSchema,
+  type TaskStatus,
+  type Task,
+  type TasksData,
+} from './tasks';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { RegistrySchema } from './registry';
+import { TasksDataSchema } from './tasks';
 
 /**
  * Schema for orchestration state (simplified for SSE events)
@@ -13,16 +14,19 @@ export const OrchestrationStateSchema = z.object({
   }),
   orchestration: z.object({
     phase: z.object({
-      id: z.string().optional(),
-      name: z.string().optional(),
-      status: z.string().optional(),
-      step: z.string().optional(),
-    }).optional(),
-  }).optional(),
+      id: z.string().nullish(),
+      number: z.string().nullish(),
+      name: z.string().nullish(),
+      branch: z.string().nullish(),
+      status: z.string().nullish(),
+      step: z.string().nullish(),
+    }).nullish(),
+  }).passthrough().nullish(),
   health: z.object({
-    status: z.enum(['healthy', 'warning', 'error']).optional(),
-    last_check: z.string().optional(),
-  }).optional(),
+    status: z.string().nullish(), // Values: ready, healthy, warning, error, initializing, migrated
+    last_check: z.string().nullish(),
+    issues: z.array(z.unknown()).nullish(),
+  }).nullish(),
 }).passthrough(); // Allow additional fields
 
 /**
@@ -33,6 +37,7 @@ export const SSEEventTypeSchema = z.enum([
   'heartbeat',    // Keep-alive ping
   'registry',     // Registry file changed
   'state',        // Project state file changed
+  'tasks',        // Project tasks.md file changed
 ]);
 
 /**
@@ -71,6 +76,16 @@ export const StateEventSchema = z.object({
 });
 
 /**
+ * Tasks event - project tasks.md file changed
+ */
+export const TasksEventSchema = z.object({
+  type: z.literal('tasks'),
+  timestamp: z.string(),
+  projectId: z.string(),
+  data: TasksDataSchema,
+});
+
+/**
  * Union of all SSE event types
  */
 export const SSEEventSchema = z.discriminatedUnion('type', [
@@ -78,6 +93,7 @@ export const SSEEventSchema = z.discriminatedUnion('type', [
   HeartbeatEventSchema,
   RegistryEventSchema,
   StateEventSchema,
+  TasksEventSchema,
 ]);
 
 // Type exports
@@ -86,5 +102,6 @@ export type ConnectedEvent = z.infer<typeof ConnectedEventSchema>;
 export type HeartbeatEvent = z.infer<typeof HeartbeatEventSchema>;
 export type RegistryEvent = z.infer<typeof RegistryEventSchema>;
 export type StateEvent = z.infer<typeof StateEventSchema>;
+export type TasksEvent = z.infer<typeof TasksEventSchema>;
 export type SSEEvent = z.infer<typeof SSEEventSchema>;
 export type OrchestrationState = z.infer<typeof OrchestrationStateSchema>;

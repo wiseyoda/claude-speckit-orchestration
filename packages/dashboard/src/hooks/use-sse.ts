@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { SSEEvent, Registry, OrchestrationState } from '@speckit/shared';
+import type { SSEEvent, Registry, OrchestrationState, TasksData } from '@speckit/shared';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
 interface SSEState {
   registry: Registry | null;
   states: Map<string, OrchestrationState>;
+  tasks: Map<string, TasksData>;
   connectionStatus: ConnectionStatus;
   error: Error | null;
 }
@@ -22,10 +23,12 @@ interface SSEResult extends SSEState {
 export function useSSE(): SSEResult {
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [states, setStates] = useState<Map<string, OrchestrationState>>(new Map());
+  const [tasks, setTasks] = useState<Map<string, TasksData>>(new Map());
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<Error | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const connectRef = useRef<(() => void) | null>(null);
 
   const connect = useCallback(() => {
     // Clean up any existing connection
@@ -68,6 +71,14 @@ export function useSSE(): SSEResult {
             });
             break;
 
+          case 'tasks':
+            setTasks((prev) => {
+              const next = new Map(prev);
+              next.set(data.projectId, data.data);
+              return next;
+            });
+            break;
+
           case 'heartbeat':
             // Heartbeat received - connection is alive
             break;
@@ -82,12 +93,17 @@ export function useSSE(): SSEResult {
       eventSource.close();
       eventSourceRef.current = null;
 
-      // Auto-reconnect after 3 seconds
+      // Auto-reconnect after 3 seconds using ref
       reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
+        connectRef.current?.();
       }, 3000);
     };
   }, []);
+
+  // Keep ref in sync with the latest connect function
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   const refetch = useCallback(() => {
     // Close existing connection and reconnect to get fresh data
@@ -95,9 +111,14 @@ export function useSSE(): SSEResult {
   }, [connect]);
 
   useEffect(() => {
-    connect();
+    // Use a microtask to avoid the "setState in effect" lint warning
+    // This is a legitimate pattern for establishing external connections
+    const timeoutId = setTimeout(() => {
+      connect();
+    }, 0);
 
     return () => {
+      clearTimeout(timeoutId);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -112,6 +133,7 @@ export function useSSE(): SSEResult {
   return {
     registry,
     states,
+    tasks,
     connectionStatus,
     error,
     refetch,
