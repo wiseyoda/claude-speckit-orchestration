@@ -1,35 +1,17 @@
 #!/usr/bin/env bash
 #
-# specflow - Unified CLI for SpecFlow operations
+# specflow - TypeScript CLI for SpecFlow operations
 #
-# Usage: specflow <command> [subcommand] [options]
+# Usage: specflow <command> [options]
 #
 # Commands:
-#   state       State file operations (get, set, init, reset)
-#   scaffold    Create project structure
-#   context     Get current feature context (branch, paths, docs)
-#   feature     Feature operations (create)
-#   git         Git operations (branch, commit, merge, push)
-#   roadmap     ROADMAP.md operations (status, update, next)
-#   claude-md   CLAUDE.md operations (update, sync)
-#   checklist   Checklist status and operations
-#   tasks       Task tracking operations
-#   templates   Template versioning (check, update, diff)
-#   doctor      Diagnostics and auto-fix
-#   detect      Detect existing content and documentation
-#   reconcile   Reconcile state with file system
-#   memory      Memory document operations (init, list, check)
-#   pdr         PDR (Product Design Requirements) operations
-#   phase       Phase detail operations (show, list, archive)
-#   issue       Local issue tracking (show, list, create, close)
+#   status      Get complete project status
+#   next        Get next actionable task
+#   mark        Mark task(s) complete/incomplete
+#   check       Deep validation with auto-fix
+#   state       Manage orchestration state
 #   help        Show this help message
 #   version     Show version
-#
-# Examples:
-#   specflow state get
-#   specflow git branch create 002-flow-engine
-#   specflow roadmap update 002 complete
-#   specflow doctor --fix
 #
 
 set -euo pipefail
@@ -38,193 +20,65 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
 readonly SCRIPT_DIR
 
-# Version - read from VERSION file or fallback
-get_version() {
-  local version_file="${SCRIPT_DIR}/../VERSION"
-  if [[ -f "$version_file" ]]; then
-    cat "$version_file" | tr -d '\n'
-  else
-    echo "2.0.0"
-  fi
-}
-readonly SPECFLOW_VERSION="$(get_version)"
+# Version
+readonly SPECFLOW_VERSION="3.0.0"
 
-# Scripts directory
-readonly SCRIPTS_DIR="${SCRIPT_DIR}/../scripts/bash"
+# TypeScript CLI directory
+readonly TS_CLI_DIR="${SCRIPT_DIR}/../packages/cli/dist"
 
-# Source common library
-if [[ -f "${SCRIPTS_DIR}/lib/common.sh" ]]; then
-  source "${SCRIPTS_DIR}/lib/common.sh"
-else
-  # Minimal fallback if common.sh doesn't exist yet
-  log_error() { echo "ERROR: $*" >&2; }
-  log_info() { echo "$*"; }
-  log_warn() { echo "WARN: $*" >&2; }
-fi
+# Colors
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+RESET='\033[0m'
+
+log_error() { echo -e "${RED}ERROR${RESET}: $*" >&2; }
+log_warn() { echo -e "${YELLOW}WARN${RESET}: $*" >&2; }
 
 # Show help
 show_help() {
   cat << 'EOF'
-specflow - Unified CLI for SpecFlow operations
+specflow - TypeScript CLI for SpecFlow v3.0
 
 USAGE:
-    specflow <command> [subcommand] [options]
+    specflow <command> [options]
 
 COMMANDS:
-    state       State file operations
-                  get [key]           Show state (or specific key)
-                  set <key>=<value>   Update state value
-                  init                Initialize new state file
-                  reset               Reset state to defaults
-
-    scaffold    Create project structure
-                  [--force]           Recreate (overwrites existing)
-
-    context     Get current feature context
-                  [--json]            Output as JSON
-                  [--require-spec]    Require spec.md
-                  [--require-plan]    Require plan.md
-                  [--require-tasks]   Require tasks.md
-
-    feature     Feature operations
-                  create <phase> <n>  Create new feature directory
-                                      Phase: 0010, 0020, etc. (4-digit)
-                                      Name: kebab-case name
-
-    git         Git operations
-                  branch create <n>   Create and checkout branch
-                  branch checkout <n> Checkout existing branch
-                  commit <message>    Stage all and commit
-                  merge <branch>      Merge branch to current
-                  push                Push current branch
-                  sync                Fetch all, show status
-
-    roadmap     ROADMAP.md operations
-                  status              Show all phase statuses
-                  next                Get next pending phase
-                  update <p> <s>      Update phase status
-                  validate            Check ROADMAP.md structure
-
-    claude-md   CLAUDE.md operations
-                  update <text>       Add to Recent Changes
-                  sync                Sync from ROADMAP completions
-
-    checklist   Checklist operations
-                  status [dir]        Show completion status
-                  list [dir]          List all checklists
-                  incomplete [dir]    List incomplete items
-
-    tasks       Task operations
-                  status [file]       Show completion status
-                  incomplete [file]   List incomplete tasks
-                  mark <id>           Mark task complete
-                  phase-status        Status by phase
-
-    templates   Template versioning
-                  check               Check for updates
-                  update [file]       Update template(s)
-                  diff <file>         Show differences
-
-    doctor      Diagnostics and fixes
-                  [--fix]             Auto-fix issues
-                  [--check <area>]    Check specific area
-
-    status      Comprehensive project status (for orchestrate)
-                  [--json]            JSON output
+    status      Get complete project status for Claude orientation
+                  [--json]            JSON output (default: human-readable)
                   [--quick]           Skip deep validation
 
-    detect      Detect existing content
-                  [--check <area>]    Check specific area (system, specflow, docs, files, state)
+    next        Get next actionable task with full context
+                  [--json]            JSON output
+                  [--section <name>]  Filter by section
 
-    reconcile   Reconcile state with files
-                  [--dry-run]         Preview changes only
-                  [--trust-files]     Trust file system over state
-                  [--trust-state]     Trust state over file system
+    mark        Mark task(s) complete/incomplete
+                  <task-id>           Task ID(s) to mark (T001, T001..T005, V-001)
+                  [--incomplete]      Mark as incomplete
+                  [--blocked <reason>] Mark as blocked
+                  [--json]            JSON output
 
-    memory      Memory document operations
-                  init <doc>          Initialize document(s)
-                                      (constitution, tech-stack, recommended, all)
-                  list                List documents with status
-                  check               Check document health
+    check       Deep validation with auto-fix support
+                  [--json]            JSON output
+                  [--fix]             Auto-fix fixable issues
+                  [--gate <gate>]     Check specific gate: design, implement, verify
 
-    lessons     Lessons learned operations
-                  init                Initialize lessons-learned.md
-                  add <type> <desc>   Add entry (error, decision, gotcha)
-                  check <keyword>     Search lessons
-                  list                List all entries
-
-    gate        Validation gate enforcement
-                  specify             Validate spec.md before planning
-                  plan                Validate plan.md before tasks
-                  tasks               Validate tasks.md before implement
-                  implement           Validate before verification
-                  all                 Run all applicable gates
-                  status              Show gate status
-
-    migrate     Migration utilities
-                  roadmap             Migrate ROADMAP.md from 2.0 to 2.1
-                                      (converts 3-digit to 4-digit phases)
-
-    import      Import existing documentation
-                  adrs <path>         Import Architecture Decision Records
-                                      [--dry-run] [--force]
-
-    manifest    Version manifest operations
-                  init                Create manifest.json
-                  get [key]           Get version info
-                  set <key> <val>     Set version value
-                  validate            Validate compatibility
-                  upgrade             Apply available upgrades
-                  status              Show version status
-
-    pdr         PDR (Product Design Requirements) operations
-                  list                List all PDRs with status
-                  status              Show PDR summary (counts)
-                  show <file>         Show PDR details
-                  validate <file>     Validate PDR structure
-                  path                Show PDR directory path
-                  init                Create PDR directory
-
-    phase       Phase detail operations
-                  show <phase>        Show phase details
-                  list [--active]     List phases with status
-                  archive <phase>     Archive phase to HISTORY.md
-                  create <n> <name>   Create new phase detail file
-                  migrate             Migrate ROADMAP.md to modular format
-                  path [phase]        Show phase file path
-
-    issue       Local issue tracking
-                  list [--open]       List issues with status
-                  show <id>           Show issue details
-                  create "<title>"    Create new issue
-                  close <id>          Close an issue
-                  update <id>         Update issue fields
-                  migrate             Migrate issues from ROADMAP.md
-                  path [id]           Show issue file path
-
-    dashboard   Web dashboard for project management
-                  [--dev]             Run in development mode
-                  [--port N]          Use specific port (default: 3000)
+    state       Manage orchestration state
+                  get [key]           Get state value (dot notation)
+                  set <key>=<value>   Set state value
+                  init                Initialize new state
+                  reset               Reset to defaults
 
     help        Show this help message
     version     Show version
 
-OPTIONS:
-    -h, --help      Show help for command
-    --json          Output in JSON format (where supported)
-    -v, --verbose   Verbose output
-
 EXAMPLES:
-    specflow state get config
-    specflow git branch create 0020-flow-engine
-    specflow roadmap update 0020 complete
-    specflow checklist status
-    specflow doctor --fix
+    specflow status --json
+    specflow next
+    specflow mark T007
+    specflow check --fix
+    specflow state get orchestration.phase.number
 
-TIP: In Claude Code, run /specflow.start to auto-detect project state and route
-     to the appropriate workflow.
-
-For more information, see: ~/.claude/specflow-system/README.md
+For Claude Code slash commands, use: /flow.orchestrate, /flow.design, etc.
 EOF
 }
 
@@ -233,19 +87,35 @@ show_version() {
   echo "specflow version ${SPECFLOW_VERSION}"
 }
 
-# Execute a subcommand script
-run_script() {
-  local script_name="$1"
+# Execute a TypeScript CLI command
+run_ts_cli() {
+  local command="$1"
   shift
-  local script_path="${SCRIPTS_DIR}/specflow-${script_name}.sh"
+  local cli_path="${TS_CLI_DIR}/index.js"
 
-  if [[ -f "${script_path}" ]]; then
-    exec bash "${script_path}" "$@"
+  if [[ -f "${cli_path}" ]]; then
+    exec node "${cli_path}" "${command}" "$@"
   else
-    log_error "Script not found: ${script_path}"
-    log_error "Command '${script_name}' is not yet implemented."
+    log_error "TypeScript CLI not built."
+    log_error "Run: cd $(dirname "${SCRIPT_DIR}") && pnpm --filter @specflow/cli build"
     exit 1
   fi
+}
+
+# Show deprecated command error
+deprecated_command() {
+  local cmd="$1"
+  log_error "Command '${cmd}' is deprecated in SpecFlow v3.0"
+  echo ""
+  echo "The TypeScript CLI replaces bash scripts with 5 smart commands:"
+  echo "  specflow status   - Complete project status (replaces: context, doctor, detect)"
+  echo "  specflow next     - Next task with context (replaces: tasks incomplete)"
+  echo "  specflow mark     - Mark tasks done (replaces: tasks mark)"
+  echo "  specflow check    - Validation & auto-fix (replaces: gate, reconcile)"
+  echo "  specflow state    - State operations (same as before)"
+  echo ""
+  echo "Run 'specflow help' for usage."
+  exit 1
 }
 
 # Main entry point
@@ -260,77 +130,21 @@ main() {
   shift
 
   case "${command}" in
-    state)
-      run_script "state" "$@"
-      ;;
-    scaffold)
-      run_script "scaffold" "$@"
-      ;;
-    context|ctx)
-      run_script "context" "$@"
-      ;;
-    feature|feat)
-      run_script "feature" "$@"
-      ;;
-    git)
-      run_script "git" "$@"
-      ;;
-    roadmap)
-      run_script "roadmap" "$@"
-      ;;
-    claude-md|claudemd)
-      run_script "claude-md" "$@"
-      ;;
-    checklist)
-      run_script "checklist" "$@"
-      ;;
-    tasks)
-      run_script "tasks" "$@"
-      ;;
-    templates)
-      run_script "templates" "$@"
-      ;;
-    doctor)
-      run_script "doctor" "$@"
-      ;;
+    # TypeScript CLI commands
     status)
-      run_script "status" "$@"
+      run_ts_cli "status" "$@"
       ;;
-    detect)
-      run_script "detect" "$@"
+    next)
+      run_ts_cli "next" "$@"
       ;;
-    reconcile)
-      run_script "reconcile" "$@"
+    mark)
+      run_ts_cli "mark" "$@"
       ;;
-    memory|mem)
-      run_script "memory" "$@"
+    check)
+      run_ts_cli "check" "$@"
       ;;
-    lessons)
-      run_script "lessons" "$@"
-      ;;
-    gate)
-      run_script "gate" "$@"
-      ;;
-    migrate)
-      run_script "migrate" "$@"
-      ;;
-    manifest)
-      run_script "manifest" "$@"
-      ;;
-    import)
-      run_script "import" "$@"
-      ;;
-    pdr)
-      run_script "pdr" "$@"
-      ;;
-    phase)
-      run_script "phase" "$@"
-      ;;
-    issue)
-      run_script "issue" "$@"
-      ;;
-    dashboard)
-      run_script "dashboard" "$@"
+    state)
+      run_ts_cli "state" "$@"
       ;;
     help|--help|-h)
       show_help
@@ -340,17 +154,18 @@ main() {
       show_version
       exit 0
       ;;
+    # Deprecated bash commands - fail with helpful message
+    scaffold|context|ctx|feature|feat|git|roadmap|claude-md|claudemd|\
+    checklist|tasks|templates|doctor|detect|reconcile|memory|mem|\
+    lessons|gate|migrate|manifest|import|pdr|phase|issue|dashboard)
+      deprecated_command "${command}"
+      ;;
     # Slash commands - these are Claude Code prompts, not CLI commands
-    analyze|specify|clarify|plan|implement|verify|orchestrate|init|constitution|start)
+    analyze|specify|clarify|plan|implement|verify|orchestrate|init|constitution|start|design)
       log_error "Unknown command: ${command}"
       echo ""
-      log_info "'${command}' is a Claude Code slash command, not a CLI command."
-      log_info "In Claude Code, type: /specflow.${command}"
-      log_info ""
-      log_info "The 'specflow' CLI provides utility commands like:"
-      log_info "  specflow state, specflow tasks, specflow roadmap, specflow checklist"
-      log_info ""
-      log_info "Run 'specflow help' for all available CLI commands."
+      echo "'${command}' is a Claude Code slash command, not a CLI command."
+      echo "In Claude Code, type: /flow.${command}"
       exit 1
       ;;
     *)

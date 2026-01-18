@@ -40,7 +40,7 @@ your-project/
 │   │
 │   ├── archive/                 # State backups
 │   │
-│   └── orchestration-state.json # Current state (v2.0 schema)
+│   └── orchestration-state.json # Current state (v3.0 schema)
 │
 ├── specs/                       # Feature specifications
 │   └── 0010-feature-name/       # One directory per phase
@@ -59,11 +59,11 @@ your-project/
 
 ### orchestration-state.json
 
-The state file tracks current progress using v2.0 schema:
+The state file tracks current progress using v3.0 schema:
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "project": {
     "id": "a1b2c3d4-e5f6-...",
     "name": "my-project",

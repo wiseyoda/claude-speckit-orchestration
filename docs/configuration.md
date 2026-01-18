@@ -6,11 +6,11 @@ SpecFlow configuration and state management.
 
 SpecFlow uses `.specify/orchestration-state.json` to track project state.
 
-### v2.0 Schema
+### v3.0 Schema
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "project": {
     "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "name": "my-project",
@@ -40,7 +40,7 @@ SpecFlow uses `.specify/orchestration-state.json` to track project state.
 
 | Field | Description |
 |-------|-------------|
-| `schema_version` | Schema version (currently "2.0") |
+| `schema_version` | Schema version (currently "3.0") |
 | `project.id` | UUID for registry tracking |
 | `project.name` | Project name |
 | `project.path` | Absolute path to project |
@@ -143,20 +143,20 @@ specflow state migrate
 This will:
 1. Backup current state to `.specify/archive/`
 2. Generate project UUID
-3. Convert to v2.0 schema
+3. Convert to v3.0 schema
 4. Register in `~/.specflow/registry.json`
 
 In-progress interviews continue seamlessly.
 
 ## ROADMAP Phase Formats
 
-### v2.0 Format (3-digit)
+### Legacy Format (3-digit)
 
 ```markdown
 ### Phase 001: Feature Name
 ```
 
-### v2.1 Format (4-digit)
+### v3.0 Format (4-digit)
 
 ```markdown
 ### Phase 0010: Feature Name
@@ -182,7 +182,7 @@ specflow migrate roadmap
 
 | Path | Purpose | Required |
 |------|---------|----------|
-| `.specify/orchestration-state.json` | Project state (v2.0 schema with UUID) | Yes |
+| `.specify/orchestration-state.json` | Project state (v3.0 schema with UUID) | Yes |
 | `.specify/manifest.json` | Version tracking and compatibility | Recommended |
 
 ### Discovery (`.specify/discovery/`)

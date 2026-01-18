@@ -1,5 +1,5 @@
 ---
-version: '2.1'
+version: '3.0'
 description: 'Project roadmap template with ABBC numbering'
 ---
 
@@ -10,12 +10,12 @@ description: 'Project roadmap template with ABBC numbering'
 
 **Project**: [PROJECT_NAME] - [PROJECT_DESCRIPTION]
 **Created**: [CREATED_DATE]
-**Schema Version**: 2.1 (ABBC numbering)
+**Schema Version**: 3.0 (ABBC numbering)
 **Status**: [PROJECT_STATUS]
 
 ---
 
-## Phase Numbering (v2.1)
+## Phase Numbering
 
 Phases use **ABBC** format:
 - **A** = Milestone (0-9) - Major version or project stage
@@ -189,7 +189,7 @@ specflow roadmap defer 0040
 specflow roadmap restore 0040 --after 0030
 ```
 
-### Migrating from v2.0
+### Migrating from Legacy Format
 If you have a 3-digit phase roadmap:
 ```bash
 specflow migrate roadmap

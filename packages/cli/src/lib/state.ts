@@ -110,7 +110,7 @@ export function createInitialState(projectName: string, projectPath: string): Or
   const now = new Date().toISOString();
 
   return {
-    schema_version: '2.0',
+    schema_version: '3.0',
     project: {
       id: crypto.randomUUID(),
       name: projectName,

@@ -1,6 +1,10 @@
 import { Command } from 'commander';
 import { setOutputOptions } from './lib/output.js';
 import { stateCommand } from './commands/state/index.js';
+import { statusCommand } from './commands/status.js';
+import { nextCommand } from './commands/next.js';
+import { markCommand } from './commands/mark.js';
+import { checkCommand } from './commands/check.js';
 
 const program = new Command()
   .name('specflow')
@@ -17,14 +21,12 @@ const program = new Command()
     });
   });
 
-// Add command groups
+// Add all commands
 program.addCommand(stateCommand);
-
-// TODO: Add remaining commands as they are implemented
-// program.addCommand(phaseCommand);
-// program.addCommand(taskCommand);
-// program.addCommand(checkCommand);
-// program.addCommand(projectCommand);
+program.addCommand(statusCommand);
+program.addCommand(nextCommand);
+program.addCommand(markCommand);
+program.addCommand(checkCommand);
 
 // Parse and execute
 program.parse();

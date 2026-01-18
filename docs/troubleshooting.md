@@ -83,7 +83,7 @@ cat .specify/orchestration-state.json | jq .
 
 **Symptom:** Missing fields or version warnings
 
-**Solution:** Migrate to v2.0:
+**Solution:** Migrate to v3.0:
 
 ```bash
 specflow state migrate

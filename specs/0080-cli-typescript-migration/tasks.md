@@ -50,16 +50,16 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T007 Create src/lib/tasks.ts - parse tasks.md into Task[] with dependencies
-- [ ] T008 [P] Create src/lib/roadmap.ts - parse ROADMAP.md into Phase[]
-- [ ] T009 [P] Create src/lib/checklist.ts - parse checklist markdown files
-- [ ] T010 Create src/lib/context.ts - resolve current feature directory and artifacts
-- [ ] T011 [P] Create src/lib/health.ts - health check logic (issues detection)
-- [ ] T012 Add tests/lib/tasks.test.ts with fixture files
-- [ ] T012a [P] Add tests/lib/roadmap.test.ts with fixture files
-- [ ] T012b [P] Add tests/lib/checklist.test.ts with fixture files
-- [ ] T012c [P] Add tests/lib/context.test.ts with fixture files
-- [ ] T012d [P] Add tests/lib/health.test.ts with fixture files
+- [x] T007 Create src/lib/tasks.ts - parse tasks.md into Task[] with dependencies
+- [x] T008 [P] Create src/lib/roadmap.ts - parse ROADMAP.md into Phase[]
+- [x] T009 [P] Create src/lib/checklist.ts - parse checklist markdown files
+- [x] T010 Create src/lib/context.ts - resolve current feature directory and artifacts
+- [x] T011 [P] Create src/lib/health.ts - health check logic (issues detection)
+- [x] T012 Add tests/lib/tasks.test.ts with fixture files
+- [x] T012a [P] Add tests/lib/roadmap.test.ts with fixture files
+- [x] T012b [P] Add tests/lib/checklist.test.ts with fixture files
+- [x] T012c [P] Add tests/lib/context.test.ts with fixture files
+- [x] T012d [P] Add tests/lib/health.test.ts with fixture files
 
 **Checkpoint**: Foundation ready - all parsers working with tests
 
@@ -70,11 +70,11 @@
 **Goal**: Complete project state in single call
 **Independent Test**: `specflow status --json` returns phase, step, progress, health, next_action
 
-- [ ] T013 [US1] Create src/commands/status.ts command skeleton
-- [ ] T014 [US1] Implement status aggregation: phase from state, progress from tasks
-- [ ] T015 [US1] Implement health check integration and next_action logic
-- [ ] T016 [US1] Add --json flag for structured output per cli-design.md schema
-- [ ] T017 [US1] Add tests/commands/status.test.ts with fixtures
+- [x] T013 [US1] Create src/commands/status.ts command skeleton
+- [x] T014 [US1] Implement status aggregation: phase from state, progress from tasks
+- [x] T015 [US1] Implement health check integration and next_action logic
+- [x] T016 [US1] Add --json flag for structured output per cli-design.md schema
+- [x] T017 [US1] Add tests/commands/status.test.ts with fixtures
 
 **Checkpoint**: `specflow status --json` returns complete state
 
@@ -85,11 +85,11 @@
 **Goal**: Next actionable item with full context
 **Independent Test**: `specflow next --json` returns task/item with dependencies and hints
 
-- [ ] T018 [US2] Create src/commands/next.ts command skeleton
-- [ ] T019 [US2] Implement task queue logic with dependency checking
-- [ ] T020 [US2] Implement hints extraction (files mentioned, spec sections)
-- [ ] T021 [US2] Add --type flag for task vs verify mode
-- [ ] T022 [US2] Add tests/commands/next.test.ts
+- [x] T018 [US2] Create src/commands/next.ts command skeleton
+- [x] T019 [US2] Implement task queue logic with dependency checking
+- [x] T020 [US2] Implement hints extraction (files mentioned, spec sections)
+- [x] T021 [US2] Add --type flag for task vs verify mode
+- [x] T022 [US2] Add tests/commands/next.test.ts
 
 **Checkpoint**: `specflow next --json` returns next unblocked task
 
@@ -100,11 +100,11 @@
 **Goal**: Mark item complete and return updated state
 **Independent Test**: `specflow mark T001` updates file and returns progress
 
-- [ ] T023 [US3] Create src/commands/mark.ts command skeleton
-- [ ] T024 [US3] Implement task file update (checkbox toggle)
-- [ ] T025 [US3] Implement multi-mark (T001 T002) and range (T001..T005)
-- [ ] T026 [US3] Return updated progress + next task after mark
-- [ ] T027 [US3] Add tests/commands/mark.test.ts
+- [x] T023 [US3] Create src/commands/mark.ts command skeleton
+- [x] T024 [US3] Implement task file update (checkbox toggle)
+- [x] T025 [US3] Implement multi-mark (T001 T002) and range (T001..T005)
+- [x] T026 [US3] Return updated progress + next task after mark
+- [x] T027 [US3] Add tests/commands/mark.test.ts
 
 **Checkpoint**: `specflow mark T001` modifies tasks.md and returns state
 
@@ -115,12 +115,12 @@
 **Goal**: Deep validation with auto-fix support
 **Independent Test**: `specflow check --json` returns validation results with fixes
 
-- [ ] T028 [US4] Create src/commands/check.ts command skeleton
-- [ ] T029 [US4] Implement gate checks (design, implement, verify gates)
-- [ ] T030 [US4] Implement issue detection with severity and fix suggestions
-- [ ] T031 [US4] Add --fix flag for auto-fixable issues
-- [ ] T032 [US4] Add --gate flag for specific gate validation
-- [ ] T033 [US4] Add tests/commands/check.test.ts
+- [x] T028 [US4] Create src/commands/check.ts command skeleton
+- [x] T029 [US4] Implement gate checks (design, implement, verify gates)
+- [x] T030 [US4] Implement issue detection with severity and fix suggestions
+- [x] T031 [US4] Add --fix flag for auto-fixable issues
+- [x] T032 [US4] Add --gate flag for specific gate validation
+- [x] T033 [US4] Add tests/commands/check.test.ts
 
 **Checkpoint**: `specflow check --json` validates project with actionable output
 
@@ -145,10 +145,10 @@
 
 **Purpose**: Connect TypeScript CLI with existing system
 
-- [ ] T039 Update bin/specflow hybrid dispatcher to route status/next/mark/check to TypeScript
-- [ ] T040 [P] Update packages/cli/package.json bin entry for direct invocation
-- [ ] T041 Test hybrid routing: TypeScript commands + bash fallback working
-- [ ] T042 Update slash commands (flow.orchestrate.md) to use new CLI syntax
+- [x] T039 Update bin/specflow hybrid dispatcher to route status/next/mark/check to TypeScript
+- [x] T040 [P] Update packages/cli/package.json bin entry for direct invocation
+- [x] T041 Test hybrid routing: TypeScript commands + bash fallback working
+- [x] T042 Update slash commands (flow.orchestrate.md) to use new CLI syntax
 
 **Checkpoint**: Both TypeScript and bash commands accessible via bin/specflow
 
@@ -158,13 +158,13 @@
 
 **Purpose**: Quality and documentation
 
-- [ ] T043 [P] Add tests/parity/state.test.ts - verify TypeScript matches bash output
-- [ ] T044 [P] Run typecheck and fix any TypeScript errors
-- [ ] T045 Update CLAUDE.md with new CLI architecture notes
-- [ ] T046 Run full test suite, verify >80% coverage
-- [ ] T047 [P] Validate JSON output schemas match cli-design.md specifications
-- [ ] T048 [P] Verify Three-Line Output Rule compliance for human-readable output (NFR-005)
-- [ ] T049 [P] Verify error messages include context and next steps (NFR-006)
+- [x] T043 [P] Add tests/parity/state.test.ts - verify TypeScript matches bash output
+- [x] T044 [P] Run typecheck and fix any TypeScript errors
+- [x] T045 Update CLAUDE.md with new CLI architecture notes
+- [x] T046 Run full test suite, verify >80% coverage
+- [x] T047 [P] Validate JSON output schemas match cli-design.md specifications
+- [x] T048 [P] Verify Three-Line Output Rule compliance for human-readable output (NFR-005)
+- [x] T049 [P] Verify error messages include context and next steps (NFR-006)
 
 ---
 

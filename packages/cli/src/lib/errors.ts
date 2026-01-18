@@ -54,6 +54,14 @@ export class ProjectError extends SpecflowError {
   }
 }
 
+export class ParseError extends SpecflowError {
+  constructor(what: string, detail?: string) {
+    const message = detail ? `Failed to parse ${what}: ${detail}` : `Failed to parse ${what}`;
+    super(message, 'PARSE');
+    this.name = 'ParseError';
+  }
+}
+
 /** Handle and format errors for CLI output */
 export function handleError(error: unknown): never {
   if (error instanceof SpecflowError) {
