@@ -20,6 +20,7 @@ export interface Task {
   userStory?: string;
   isParallel?: boolean;
   dependencies?: string[];
+  blockedReason?: string;
   line: number;
 }
 
@@ -127,6 +128,16 @@ function extractDependencies(description: string): string[] {
 /**
  * Parse a single task line
  */
+/**
+ * Extract blocked reason from task description.
+ * Matches: (blocked: reason) or [BLOCKED: reason]
+ */
+function extractBlockedReason(description: string): string | undefined {
+  // Match (blocked: reason) or [BLOCKED: reason] patterns
+  const match = description.match(/[\[(]blocked:\s*([^\])]+)[\])]/i);
+  return match ? match[1].trim() : undefined;
+}
+
 function parseTaskLine(line: string, lineNumber: number): Task | null {
   const status = parseCheckboxStatus(line);
   if (!status) return null;
@@ -149,6 +160,7 @@ function parseTaskLine(line: string, lineNumber: number): Task | null {
     userStory: extractUserStory(description) ?? undefined,
     isParallel: isParallelTask(description) || undefined,
     dependencies: extractDependencies(description) || undefined,
+    blockedReason: status === 'blocked' ? extractBlockedReason(description) : undefined,
     line: lineNumber,
   };
 }

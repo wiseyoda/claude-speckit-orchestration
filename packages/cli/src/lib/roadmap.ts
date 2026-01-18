@@ -1,6 +1,30 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { getRoadmapPath, pathExists, findProjectRoot } from './paths.js';
-import { NotFoundError } from './errors.js';
+import { NotFoundError, ParseError } from './errors.js';
+
+/**
+ * Atomically write content to a file (write to temp, then rename).
+ * This prevents partial writes from corrupting the file.
+ */
+async function atomicWriteFile(filePath: string, content: string): Promise<void> {
+  const dir = dirname(filePath);
+  const tempPath = join(dir, `.tmp-${randomUUID()}`);
+
+  try {
+    await writeFile(tempPath, content);
+    await rename(tempPath, filePath);
+  } catch (err) {
+    // Clean up temp file if rename failed
+    try {
+      await unlink(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw err;
+  }
+}
 
 /**
  * Phase status from ROADMAP.md
@@ -219,8 +243,17 @@ export async function readRoadmap(projectPath?: string): Promise<RoadmapData> {
     );
   }
 
-  const content = await readFile(roadmapPath, 'utf-8');
-  return parseRoadmapContent(content, roadmapPath);
+  try {
+    const content = await readFile(roadmapPath, 'utf-8');
+    return parseRoadmapContent(content, roadmapPath);
+  } catch (err) {
+    if (err instanceof NotFoundError || err instanceof ParseError) {
+      throw err;
+    }
+    // Wrap I/O errors with context
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new ParseError('ROADMAP.md', message);
+  }
 }
 
 /**
@@ -283,7 +316,14 @@ export async function updatePhaseStatus(
     );
   }
 
-  const content = await readFile(roadmapPath, 'utf-8');
+  let content: string;
+  try {
+    content = await readFile(roadmapPath, 'utf-8');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new ParseError('ROADMAP.md', message);
+  }
+
   const lines = content.split('\n');
   let updated = false;
 
@@ -313,7 +353,7 @@ export async function updatePhaseStatus(
   }
 
   if (updated) {
-    await writeFile(roadmapPath, lines.join('\n'));
+    await atomicWriteFile(roadmapPath, lines.join('\n'));
   }
 
   return { updated, filePath: roadmapPath };
@@ -385,7 +425,14 @@ export async function insertPhaseRow(
     );
   }
 
-  const content = await readFile(roadmapPath, 'utf-8');
+  let content: string;
+  try {
+    content = await readFile(roadmapPath, 'utf-8');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new ParseError('ROADMAP.md', message);
+  }
+
   const lines = content.split('\n');
 
   // Find the Phase Overview table
@@ -438,7 +485,7 @@ export async function insertPhaseRow(
   // Insert the new row
   lines.splice(insertAfterLine + 1, 0, newRow);
 
-  await writeFile(roadmapPath, lines.join('\n'));
+  await atomicWriteFile(roadmapPath, lines.join('\n'));
 
   return { inserted: true, filePath: roadmapPath, line: insertAfterLine + 2 };
 }

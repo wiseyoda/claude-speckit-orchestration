@@ -80,27 +80,36 @@ export interface NextNoneOutput {
 
 export type NextOutput = NextTaskOutput | NextVerifyOutput | NextNoneOutput;
 
+/** Maximum description length to process for file extraction (prevent regex DoS) */
+const MAX_DESCRIPTION_LENGTH = 4096;
+
 /**
- * Extract file paths mentioned in task description
+ * Extract file paths mentioned in task description.
+ * Enforces length limit to prevent regex backtracking on very long strings.
  */
 function extractFilesMentioned(description: string): string[] {
+  // Truncate very long descriptions to prevent regex DoS
+  const safeDescription = description.length > MAX_DESCRIPTION_LENGTH
+    ? description.slice(0, MAX_DESCRIPTION_LENGTH)
+    : description;
+
   const files: string[] = [];
 
   // Match common file patterns
   // src/... paths
-  const srcMatch = description.match(/\bsrc\/[\w\-./]+\.\w+/g);
+  const srcMatch = safeDescription.match(/\bsrc\/[\w\-./]+\.\w+/g);
   if (srcMatch) files.push(...srcMatch);
 
   // tests/... paths
-  const testMatch = description.match(/\btests?\/[\w\-./]+\.\w+/g);
+  const testMatch = safeDescription.match(/\btests?\/[\w\-./]+\.\w+/g);
   if (testMatch) files.push(...testMatch);
 
   // lib/... paths
-  const libMatch = description.match(/\blib\/[\w\-./]+\.\w+/g);
+  const libMatch = safeDescription.match(/\blib\/[\w\-./]+\.\w+/g);
   if (libMatch) files.push(...libMatch);
 
   // Any path with file extension
-  const genericMatch = description.match(/\b[\w\-./]+\.(ts|js|md|json|tsx|jsx)\b/g);
+  const genericMatch = safeDescription.match(/\b[\w\-./]+\.(ts|js|md|json|tsx|jsx)\b/g);
   if (genericMatch) {
     for (const match of genericMatch) {
       if (!files.includes(match) && match.includes('/')) {

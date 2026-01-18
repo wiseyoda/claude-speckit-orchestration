@@ -390,9 +390,7 @@ async function applyFixes(
         });
       }
 
-      if (issue.code === 'STATE_ROADMAP_DRIFT') {
-        // This requires more complex logic - skip for now
-      }
+      // Add other auto-fix handlers here as needed
     } catch {
       // Fix failed, continue
     }
@@ -602,6 +600,7 @@ export const checkCommand = new Command('check')
     try {
       const result = await runCheck({
         fix: options.fix,
+        // Safe assertion: Commander validates --gate against allowed values in .option()
         gate: options.gate as GateType | undefined,
       });
 

@@ -17,11 +17,6 @@ export function setOutputOptions(options: OutputOptions): void {
   globalOptions = { ...globalOptions, ...options };
 }
 
-/** Get current output options */
-export function getOutputOptions(): OutputOptions {
-  return globalOptions;
-}
-
 /** Output JSON if --json flag, otherwise human-readable */
 export function output(data: unknown, humanReadable?: string): void {
   if (globalOptions.json) {
@@ -98,22 +93,3 @@ export function status(
   console.log(parts.join(' '));
 }
 
-/** Format a table for output */
-export function table(headers: string[], rows: (string | number)[][]): void {
-  if (globalOptions.json) return;
-
-  // Calculate column widths
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => String(r[i] ?? '').length)),
-  );
-
-  // Print header
-  const headerLine = headers.map((h, i) => h.padEnd(widths[i])).join('  ');
-  console.log(chalk.bold(headerLine));
-  console.log(chalk.dim('─'.repeat(headerLine.length)));
-
-  // Print rows
-  for (const row of rows) {
-    console.log(row.map((cell, i) => String(cell ?? '').padEnd(widths[i])).join('  '));
-  }
-}

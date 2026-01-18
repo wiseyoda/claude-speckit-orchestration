@@ -1,5 +1,6 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { readFile, writeFile, mkdir, rename, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { OrchestrationState } from '@specflow/shared';
 import { OrchestrationStateSchema } from '@specflow/shared';
 import { getStatePath, pathExists } from './paths.js';
@@ -32,6 +33,28 @@ export async function readState(projectPath?: string): Promise<OrchestrationStat
   }
 }
 
+/**
+ * Atomically write content to a file (write to temp, then rename).
+ * This prevents partial writes from corrupting the file.
+ */
+async function atomicWriteFile(filePath: string, content: string): Promise<void> {
+  const dir = dirname(filePath);
+  const tempPath = join(dir, `.tmp-${randomUUID()}`);
+
+  try {
+    await writeFile(tempPath, content);
+    await rename(tempPath, filePath);
+  } catch (err) {
+    // Clean up temp file if rename failed
+    try {
+      await unlink(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw err;
+  }
+}
+
 /** Write state to file */
 export async function writeState(
   state: OrchestrationState,
@@ -48,7 +71,7 @@ export async function writeState(
     last_updated: new Date().toISOString(),
   };
 
-  await writeFile(statePath, JSON.stringify(updatedState, null, 2) + '\n');
+  await atomicWriteFile(statePath, JSON.stringify(updatedState, null, 2) + '\n');
 }
 
 /** Get a nested value from state using dot notation */
@@ -94,8 +117,16 @@ export function setStateValue(
   return result as OrchestrationState;
 }
 
+/** Maximum string length for JSON parsing (1MB) */
+const MAX_JSON_PARSE_LENGTH = 1024 * 1024;
+
 /** Parse a value string into appropriate type */
 export function parseValue(valueStr: string): unknown {
+  // Reject extremely long strings to prevent memory exhaustion during parsing
+  if (valueStr.length > MAX_JSON_PARSE_LENGTH) {
+    throw new Error(`Value too long: ${valueStr.length} chars exceeds max ${MAX_JSON_PARSE_LENGTH}`);
+  }
+
   // Try to parse as JSON first
   try {
     return JSON.parse(valueStr);

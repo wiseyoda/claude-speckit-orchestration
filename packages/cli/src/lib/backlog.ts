@@ -90,24 +90,85 @@ export async function parseDeferredFile(filePath: string): Promise<DeferredItem[
 }
 
 /**
+ * Parse deferred items marked with [~] from checklist files
+ */
+async function parseDeferredFromChecklist(
+  filePath: string,
+  source: string,
+): Promise<DeferredItem[]> {
+  if (!pathExists(filePath)) {
+    return [];
+  }
+
+  const content = await readFile(filePath, 'utf-8');
+  const items: DeferredItem[] = [];
+
+  // Match lines with [~] checkbox: - [~] V-001 Description - reason
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const match = line.match(/^-\s*\[~\]\s*([A-Z]-\d{3})\s+(.+)$/);
+    if (match) {
+      const id = match[1];
+      const rest = match[2];
+      // Check for inline reason after " - "
+      const reasonMatch = rest.match(/^(.+?)\s+-\s+(.+)$/);
+      if (reasonMatch) {
+        items.push({
+          description: `${id} ${reasonMatch[1].trim()}`,
+          source,
+          reason: reasonMatch[2].trim(),
+        });
+      } else {
+        items.push({
+          description: `${id} ${rest.trim()}`,
+          source,
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
+/**
  * Scan for deferred items in a phase
+ * Checks: checklists/deferred.md, checklists/verification.md, checklists/implementation.md
  */
 export async function scanDeferredItems(
   phaseNumber: string,
   phaseName: string,
   projectPath: string = process.cwd(),
 ): Promise<DeferredSummary> {
-  const deferredPath = getDeferredPath(phaseNumber, phaseName, projectPath);
-  const items = await parseDeferredFile(deferredPath);
+  const slug = phaseName.toLowerCase().replace(/\s+/g, '-');
+  const specsDir = getSpecsDir(projectPath);
+  const checklistDir = join(specsDir, `${phaseNumber}-${slug}`, 'checklists');
 
-  const withTarget = items.filter(i => i.targetPhase && i.targetPhase !== 'Backlog').length;
-  const toBacklog = items.filter(i => !i.targetPhase || i.targetPhase === 'Backlog').length;
+  // Collect from all sources
+  const allItems: DeferredItem[] = [];
+
+  // 1. Traditional deferred.md
+  const deferredPath = getDeferredPath(phaseNumber, phaseName, projectPath);
+  const deferredItems = await parseDeferredFile(deferredPath);
+  allItems.push(...deferredItems);
+
+  // 2. Verification checklist [~] markers
+  const verificationPath = join(checklistDir, 'verification.md');
+  const verificationItems = await parseDeferredFromChecklist(verificationPath, 'verification');
+  allItems.push(...verificationItems);
+
+  // 3. Implementation checklist [~] markers
+  const implementationPath = join(checklistDir, 'implementation.md');
+  const implementationItems = await parseDeferredFromChecklist(implementationPath, 'implementation');
+  allItems.push(...implementationItems);
+
+  const withTarget = allItems.filter(i => i.targetPhase && i.targetPhase !== 'Backlog').length;
+  const toBacklog = allItems.filter(i => !i.targetPhase || i.targetPhase === 'Backlog').length;
 
   return {
-    count: items.length,
+    count: allItems.length,
     withTarget,
     toBacklog,
-    items,
+    items: allItems,
   };
 }
 

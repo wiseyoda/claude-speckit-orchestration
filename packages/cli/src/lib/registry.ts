@@ -69,37 +69,8 @@ export function registerProject(
   writeRegistry(registry);
 }
 
-/** Update the last_seen timestamp for a project */
-export function touchProject(id: string): void {
-  const registry = readRegistry();
-
-  if (registry.projects[id]) {
-    registry.projects[id].last_seen = new Date().toISOString();
-    writeRegistry(registry);
-  }
-}
-
-/** Remove a project from the registry */
-export function unregisterProject(id: string): boolean {
-  const registry = readRegistry();
-
-  if (registry.projects[id]) {
-    delete registry.projects[id];
-    writeRegistry(registry);
-    return true;
-  }
-
-  return false;
-}
-
 /** Check if a project is registered */
 export function isRegistered(id: string): boolean {
   const registry = readRegistry();
   return id in registry.projects;
-}
-
-/** Get all registered projects */
-export function getRegisteredProjects(): Record<string, Project> {
-  const registry = readRegistry();
-  return registry.projects;
 }

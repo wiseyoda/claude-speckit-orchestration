@@ -32,7 +32,7 @@ Abort if gate fails - instruct user to run `/flow.design` first.
 
 If `step.current` != "analyze", update state:
 ```bash
-specflow state set orchestration.step.current=analyze orchestration.step.index=1
+specflow state set orchestration.step.current=analyze orchestration.step.index=1 orchestration.step.status=in_progress
 ```
 
 ### 2. Load Artifacts
@@ -90,7 +90,7 @@ Analyze for these issue categories (limit 50 findings total):
 
 If **zero issues** found:
 ```bash
-specflow state set orchestration.step.current=implement orchestration.step.index=2
+specflow state set orchestration.step.current=implement orchestration.step.index=2 orchestration.step.status=in_progress
 ```
 Output: "Analysis clean. Ready for implementation."
 

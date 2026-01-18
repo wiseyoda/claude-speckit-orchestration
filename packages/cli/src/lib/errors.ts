@@ -16,7 +16,7 @@ export class SpecflowError extends Error {
 
   /** Format error for CLI output */
   format(): string {
-    const lines = [chalk.red(`Error: ${this.message}`)];
+    const lines = [chalk.red(`Error [${this.code}]: ${this.message}`)];
 
     if (this.suggestion) {
       lines.push(chalk.yellow(`Suggestion: ${this.suggestion}`));
