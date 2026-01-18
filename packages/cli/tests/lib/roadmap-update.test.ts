@@ -9,6 +9,8 @@ vi.mock('../../src/lib/paths.js', () => ({
 vi.mock('node:fs/promises', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
+  rename: vi.fn().mockResolvedValue(undefined),
+  unlink: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { findProjectRoot, pathExists, getRoadmapPath } from '../../src/lib/paths.js';

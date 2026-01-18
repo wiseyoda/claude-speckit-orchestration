@@ -44,6 +44,12 @@
 | [OE014] Over-Engineering: Over-engineered history archiving (history.ts) | Phase 1049 | Deferred | - |
 | [0042-T041] Document `.specify/scripts/` vs `scripts/bash/` purpose | Phase 0042 | Archive scan | Clarify script directory structure |
 | [1010-T034] Create useKeyboard hook for global shortcuts | Phase 1010 | Archive scan | Dashboard keyboard navigation |
+| V-003 `pnpm lint` | Phase 0082 | ESLint not installed in environment | - |
+| V-004 `pnpm typecheck` | Phase 0082 | Pre-existing type issues in close.ts, detect.ts, migrate.ts | - |
+| V-030 health.ts collectIssues() still 227 lines | Phase 0082 | split deferred | - |
+| V-064 flow.orchestrate.md exit codes | Phase 0082 | implicit (0=success) | - |
+| V-081 No new linting errors | Phase 0082 | lint unavailable | - |
+| V-083 Commit history | Phase 0082 | changes uncommitted | - |
 
 ### P3 - Low Priority
 

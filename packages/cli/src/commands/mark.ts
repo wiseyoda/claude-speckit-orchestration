@@ -12,7 +12,7 @@ import {
 } from '../lib/checklist.js';
 import { resolveFeatureDir } from '../lib/context.js';
 import { findProjectRoot } from '../lib/paths.js';
-import { handleError, NotFoundError, ValidationError } from '../lib/errors.js';
+import { handleError, NotFoundError, ValidationError, ParseError } from '../lib/errors.js';
 
 /**
  * Item type discriminator
@@ -133,7 +133,8 @@ function parseIds(args: string[]): ParsedIds {
 function updateTaskCheckbox(
   content: string,
   taskId: string,
-  complete: boolean,
+  status: 'complete' | 'incomplete' | 'blocked',
+  blockedReason?: string,
 ): string {
   const lines = content.split('\n');
   const updated: string[] = [];
@@ -141,13 +142,26 @@ function updateTaskCheckbox(
   for (const line of lines) {
     // Check if this line contains the task ID
     if (line.includes(taskId)) {
-      if (complete) {
+      let updatedLine = line;
+
+      // First, normalize to incomplete state
+      updatedLine = updatedLine.replace(/- \[[xXbB]\]/i, '- [ ]');
+      // Remove any existing blocked reason
+      updatedLine = updatedLine.replace(/\s*[\[(]blocked:\s*[^\])]+[\])]/i, '');
+
+      if (status === 'complete') {
         // Mark as complete: [ ] -> [x]
-        updated.push(line.replace(/- \[ \]/, '- [x]'));
-      } else {
-        // Mark as incomplete: [x] -> [ ]
-        updated.push(line.replace(/- \[x\]/i, '- [ ]'));
+        updatedLine = updatedLine.replace(/- \[ \]/, '- [x]');
+      } else if (status === 'blocked') {
+        // Mark as blocked: [ ] -> [b] and append reason
+        updatedLine = updatedLine.replace(/- \[ \]/, '- [b]');
+        if (blockedReason) {
+          updatedLine = `${updatedLine} (blocked: ${blockedReason})`;
+        }
       }
+      // status === 'incomplete' is already handled by normalization
+
+      updated.push(updatedLine);
     } else {
       updated.push(line);
     }
@@ -192,16 +206,36 @@ async function markTasks(
   }
 
   // Read file content
-  let content = await readFile(tasksData.filePath, 'utf-8');
+  let content: string;
+  try {
+    content = await readFile(tasksData.filePath, 'utf-8');
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new ParseError('tasks.md', `Failed to read: ${message}`);
+  }
+
+  // Determine target status
+  let targetStatus: 'complete' | 'incomplete' | 'blocked';
+  if (options.blocked) {
+    targetStatus = 'blocked';
+  } else if (options.incomplete) {
+    targetStatus = 'incomplete';
+  } else {
+    targetStatus = 'complete';
+  }
 
   // Update each task
-  const complete = !options.incomplete;
   for (const taskId of taskIds) {
-    content = updateTaskCheckbox(content, taskId, complete);
+    content = updateTaskCheckbox(content, taskId, targetStatus, options.blocked);
   }
 
   // Write updated content
-  await writeFile(tasksData.filePath, content);
+  try {
+    await writeFile(tasksData.filePath, content);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    throw new ParseError('tasks.md', `Failed to write: ${message}`);
+  }
 
   // Re-read tasks to get updated state
   const updatedTasks = await readTasks(featureDir);
@@ -229,7 +263,7 @@ async function markTasks(
   const result: MarkOutput = {
     marked: taskIds,
     itemType: 'task',
-    newStatus: complete ? 'complete' : 'incomplete',
+    newStatus: targetStatus,
     progress: {
       completed: updatedTasks.progress.completed,
       total: updatedTasks.progress.total,
@@ -314,7 +348,13 @@ async function markChecklistItems(
       invalidIds.push(itemId);
     } else {
       if (!fileUpdates.has(found.checklist.filePath)) {
-        const content = await readFile(found.checklist.filePath, 'utf-8');
+        let content: string;
+        try {
+          content = await readFile(found.checklist.filePath, 'utf-8');
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          throw new ParseError('checklist', `Failed to read ${found.checklist.filePath}: ${message}`);
+        }
         fileUpdates.set(found.checklist.filePath, { content, ids: [] });
       }
       fileUpdates.get(found.checklist.filePath)!.ids.push(itemId);
@@ -329,13 +369,18 @@ async function markChecklistItems(
   }
 
   // Update each file
-  const complete = !options.incomplete;
+  const checklistStatus: 'complete' | 'incomplete' = options.incomplete ? 'incomplete' : 'complete';
   for (const [filePath, { content, ids }] of fileUpdates) {
     let updatedContent = content;
     for (const itemId of ids) {
-      updatedContent = updateTaskCheckbox(updatedContent, itemId, complete);
+      updatedContent = updateTaskCheckbox(updatedContent, itemId, checklistStatus);
     }
-    await writeFile(filePath, updatedContent);
+    try {
+      await writeFile(filePath, updatedContent);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      throw new ParseError('checklist', `Failed to write ${filePath}: ${message}`);
+    }
   }
 
   // Re-read checklists to get updated state
@@ -382,7 +427,7 @@ async function markChecklistItems(
   const result: MarkOutput = {
     marked: itemIds,
     itemType: 'checklist',
-    newStatus: complete ? 'complete' : 'incomplete',
+    newStatus: checklistStatus,
     progress: {
       completed: completedItems,
       total: totalItems,

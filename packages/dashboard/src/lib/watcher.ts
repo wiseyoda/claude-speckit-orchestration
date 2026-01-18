@@ -192,7 +192,8 @@ async function handleTasksChange(projectId: string, tasksPath: string): Promise<
 
 /**
  * Get tasks.md path for a project based on current phase
- * Tasks are in specs/{phase_number}-{phase_name}/tasks.md
+ * Tasks are in specs/{phase_number}-{phase_name_slug}/tasks.md
+ * The directory name uses the branch format (lowercase, hyphenated)
  */
 async function getTasksPathForProject(projectPath: string, statePath: string): Promise<string | null> {
   try {
@@ -200,9 +201,21 @@ async function getTasksPathForProject(projectPath: string, statePath: string): P
     const state = JSON.parse(content);
     const phase = state?.orchestration?.phase;
 
-    if (phase?.number && phase?.name) {
-      // Try exact match: specs/{number}-{name}/tasks.md
-      const tasksPath = path.join(projectPath, 'specs', `${phase.number}-${phase.name}`, 'tasks.md');
+    if (phase?.number) {
+      // The branch field has the correct format for the directory name
+      // e.g., branch: "0082-code-review-20260118" -> directory is "0082-code-review-20260118"
+      let dirName: string;
+      if (phase.branch) {
+        dirName = phase.branch;
+      } else if (phase.name) {
+        // Fallback: derive slug from name (lowercase, spaces to hyphens)
+        const nameSlug = phase.name.toLowerCase().replace(/\s+/g, '-');
+        dirName = `${phase.number}-${nameSlug}`;
+      } else {
+        return null;
+      }
+
+      const tasksPath = path.join(projectPath, 'specs', dirName, 'tasks.md');
       try {
         await fs.access(tasksPath);
         return tasksPath;

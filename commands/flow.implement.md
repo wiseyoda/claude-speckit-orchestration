@@ -48,7 +48,7 @@ Abort if gate fails - instruct user to run `/flow.design` first.
 
 If `step.current` != "implement", update state:
 ```bash
-specflow state set orchestration.step.current=implement orchestration.step.index=2
+specflow state set orchestration.step.current=implement orchestration.step.index=2 orchestration.step.status=in_progress
 ```
 
 ### 2. Load Context
@@ -148,7 +148,7 @@ specflow check --gate implement
 
 If gate passes:
 ```bash
-specflow state set orchestration.step.current=verify orchestration.step.index=3
+specflow state set orchestration.step.current=verify orchestration.step.index=3 orchestration.step.status=in_progress
 ```
 
 Output: "All tasks complete. Ready for verification."

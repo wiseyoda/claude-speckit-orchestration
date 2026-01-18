@@ -96,6 +96,7 @@ function getMostRecentTimestamp(...timestamps: (string | null | undefined)[]): s
 
 /**
  * Get step status styling based on step name
+ * Steps: design → analyze → implement → verify → complete
  */
 function getStepStyles(step: string | null | undefined): string {
   if (!step) return "text-neutral-500 dark:text-neutral-400"
@@ -103,20 +104,31 @@ function getStepStyles(step: string | null | undefined): string {
   const normalizedStep = step.toLowerCase()
 
   if (normalizedStep === "complete" || normalizedStep === "completed") {
-    // Complete is done - green
+    // Complete - green
     return "text-green-600 dark:text-green-400"
   }
 
-  if (normalizedStep === "verify") {
-    // Verify needs attention - amber
-    return "text-amber-600 dark:text-amber-400"
+  if (normalizedStep === "design") {
+    // Design - purple (planning/architecture)
+    return "text-purple-600 dark:text-purple-400"
+  }
+
+  if (normalizedStep === "analyze") {
+    // Analyze - cyan (investigation/review)
+    return "text-cyan-600 dark:text-cyan-400"
   }
 
   if (normalizedStep === "implement" || normalizedStep === "implementing") {
+    // Implement - blue (active coding)
     return "text-blue-600 dark:text-blue-400"
   }
 
-  // Default for other steps (discover, specify, plan, etc.)
+  if (normalizedStep === "verify") {
+    // Verify - amber (needs attention/action)
+    return "text-amber-600 dark:text-amber-400"
+  }
+
+  // Default for unknown steps
   return "text-neutral-500 dark:text-neutral-400"
 }
 

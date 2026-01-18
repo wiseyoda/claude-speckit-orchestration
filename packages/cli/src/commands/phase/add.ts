@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { output } from '../../lib/output.js';
 import { insertPhaseRow, readRoadmap, type PhaseStatus } from '../../lib/roadmap.js';
 import { findProjectRoot } from '../../lib/paths.js';
-import { handleError, NotFoundError } from '../../lib/errors.js';
+import { handleError, NotFoundError, ValidationError, StateError } from '../../lib/errors.js';
 
 /**
  * Add command output
@@ -39,14 +39,20 @@ export async function addAction(
 
     // Validate phase number format (4 digits)
     if (!/^\d{4}$/.test(number)) {
-      throw new Error(`Invalid phase number: ${number}. Must be 4 digits (e.g., 0010)`);
+      throw new ValidationError(
+        `Invalid phase number: ${number}. Must be 4 digits (e.g., 0010)`,
+        'Use a 4-digit number like 0010, 0080, or 1020',
+      );
     }
 
     // Check if phase already exists
     const roadmap = await readRoadmap(projectRoot);
     const existingPhase = roadmap.phases.find(p => p.number === number);
     if (existingPhase) {
-      throw new Error(`Phase ${number} already exists: ${existingPhase.name}`);
+      throw new ValidationError(
+        `Phase ${number} already exists: ${existingPhase.name}`,
+        'Choose a different phase number',
+      );
     }
 
     // Build verification gate text
@@ -67,7 +73,10 @@ export async function addAction(
     );
 
     if (!result.inserted) {
-      throw new Error('Failed to insert phase into ROADMAP.md table');
+      throw new StateError(
+        'Failed to insert phase into ROADMAP.md table',
+        'Check that ROADMAP.md has a valid phase table',
+      );
     }
 
     const addOutput: AddOutput = {

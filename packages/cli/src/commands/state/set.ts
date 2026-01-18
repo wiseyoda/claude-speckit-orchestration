@@ -1,7 +1,21 @@
 import { Command } from 'commander';
+import { z } from 'zod';
 import { readState, writeState, setStateValue, parseValue } from '../../lib/state.js';
 import { success } from '../../lib/output.js';
 import { handleError, ValidationError } from '../../lib/errors.js';
+
+/**
+ * Zod schema for state key validation
+ * Keys must be dot-separated alphanumeric identifiers
+ */
+const stateKeySchema = z
+  .string()
+  .min(1, 'Key cannot be empty')
+  .max(256, 'Key too long (max 256 characters)')
+  .regex(
+    /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/,
+    'Key must be dot-separated identifiers (e.g., orchestration.step.current)',
+  );
 
 /**
  * Set a value in state using key=value format
@@ -29,8 +43,13 @@ export const set = new Command('set')
       const key = keyvalue.slice(0, eqIndex);
       const valueStr = keyvalue.slice(eqIndex + 1);
 
-      if (!key) {
-        throw new ValidationError('Key cannot be empty');
+      // Validate key format with Zod
+      const keyResult = stateKeySchema.safeParse(key);
+      if (!keyResult.success) {
+        throw new ValidationError(
+          keyResult.error.issues[0]?.message ?? 'Invalid key format',
+          'Use format: orchestration.step.current',
+        );
       }
 
       // Parse value (handles JSON, numbers, booleans, strings)

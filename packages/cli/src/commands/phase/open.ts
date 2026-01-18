@@ -13,6 +13,20 @@ import { findProjectRoot, getPhasesDir, pathExists } from '../../lib/paths.js';
 import { handleError, NotFoundError, ValidationError } from '../../lib/errors.js';
 
 /**
+ * Sanitize a string for use as a git branch name segment.
+ * Only allows alphanumeric characters and hyphens.
+ * Collapses multiple hyphens and trims hyphens from ends.
+ */
+function sanitizeBranchSegment(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '-') // Spaces to hyphens
+    .replace(/[^a-z0-9-]/g, '') // Remove unsafe characters
+    .replace(/-+/g, '-') // Collapse multiple hyphens
+    .replace(/^-|-$/g, ''); // Trim leading/trailing hyphens
+}
+
+/**
  * Phase open output
  */
 export interface PhaseOpenOutput {
@@ -41,7 +55,7 @@ async function createPhaseDetailFile(
     await mkdir(phasesDir, { recursive: true });
   }
 
-  const slug = phaseName.toLowerCase().replace(/\s+/g, '-');
+  const slug = sanitizeBranchSegment(phaseName);
   const fileName = `${phaseNumber}-${slug}.md`;
   const filePath = join(phasesDir, fileName);
 
@@ -116,8 +130,8 @@ async function openExistingPhase(
     );
   }
 
-  // Create branch name
-  const slug = phase.name.toLowerCase().replace(/\s+/g, '-');
+  // Create branch name with sanitized slug
+  const slug = sanitizeBranchSegment(phase.name);
   const branch = `${phase.number}-${slug}`;
 
   // Update state
@@ -188,8 +202,8 @@ async function createHotfixPhase(
   // Create phase detail file
   await createPhaseDetailFile(hotfixNumber, phaseName, projectRoot);
 
-  // Create branch name
-  const slug = phaseName.toLowerCase().replace(/\s+/g, '-');
+  // Create branch name with sanitized slug
+  const slug = sanitizeBranchSegment(phaseName);
   const branch = `${hotfixNumber}-${slug}`;
 
   // Update state

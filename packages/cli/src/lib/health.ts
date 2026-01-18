@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { z } from 'zod';
 import {
   findProjectRoot,
   getStatePath,
@@ -13,6 +14,21 @@ import { readState } from './state.js';
 import { readRoadmap, getPhaseByNumber } from './roadmap.js';
 import { getProjectContext, getMissingArtifacts } from './context.js';
 import type { OrchestrationState } from '@specflow/shared';
+
+/**
+ * Zod schema for manifest.json validation
+ */
+const ManifestSchema = z.object({
+  schema_version: z.string().optional(),
+  project: z.object({
+    name: z.string().optional(),
+    id: z.string().optional(),
+  }).optional(),
+  compatibility: z.object({
+    min_cli: z.string().optional(),
+    max_cli: z.string().optional(),
+  }).optional(),
+}).passthrough(); // Allow additional fields for forward compatibility
 
 // CLI version for compatibility checks
 const CLI_VERSION = '3.0.0';
@@ -111,7 +127,7 @@ async function collectIssues(projectPath?: string): Promise<HealthIssue[]> {
       severity: 'error',
       message: 'State file is corrupted or invalid',
       fix: 'Run "specflow state reset" to reset state, or manually repair .specify/orchestration-state.json',
-      autoFixable: true,
+      autoFixable: false, // Requires manual intervention to preserve data
     });
     return issues;
   }
@@ -157,17 +173,30 @@ async function collectIssues(projectPath?: string): Promise<HealthIssue[]> {
   if (pathExists(manifestPath)) {
     try {
       const manifestContent = await readFile(manifestPath, 'utf-8');
-      const manifest = JSON.parse(manifestContent);
-      const minCli = manifest.compatibility?.min_cli;
+      const jsonData = JSON.parse(manifestContent);
+      const parseResult = ManifestSchema.safeParse(jsonData);
 
-      if (minCli && compareSemver(CLI_VERSION, minCli) < 0) {
+      if (!parseResult.success) {
         issues.push({
-          code: 'CLI_VERSION_MISMATCH',
-          severity: 'error',
-          message: `Project requires CLI v${minCli}+ but running v${CLI_VERSION}`,
-          fix: 'Update SpecFlow CLI: curl -fsSL https://specflow.dev/install.sh | bash',
+          code: 'MANIFEST_INVALID',
+          severity: 'warning',
+          message: `Invalid manifest.json structure: ${parseResult.error.issues[0]?.message ?? 'Unknown error'}`,
+          fix: 'Run "/flow.init" to regenerate manifest',
           autoFixable: false,
         });
+      } else {
+        const manifest = parseResult.data;
+        const minCli = manifest.compatibility?.min_cli;
+
+        if (minCli && compareSemver(CLI_VERSION, minCli) < 0) {
+          issues.push({
+            code: 'CLI_VERSION_MISMATCH',
+            severity: 'error',
+            message: `Project requires CLI v${minCli}+ but running v${CLI_VERSION}`,
+            fix: 'Update SpecFlow CLI: curl -fsSL https://specflow.dev/install.sh | bash',
+            autoFixable: false,
+          });
+        }
       }
     } catch {
       issues.push({
@@ -206,7 +235,7 @@ async function collectIssues(projectPath?: string): Promise<HealthIssue[]> {
             severity: 'warning',
             message: 'State shows phase in progress but ROADMAP shows complete',
             fix: 'Run "specflow phase close" to close completed phase',
-            autoFixable: true,
+            autoFixable: false, // Requires user to verify before closing
           });
         }
       }

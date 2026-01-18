@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Activity, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, FolderOpen, AlertCircle, Loader2 } from "lucide-react"
 import type { OrchestrationState, TasksData } from "@specflow/shared"
 
-// Staleness threshold in minutes
+// Staleness thresholds in minutes
 const STALE_THRESHOLD_MINUTES = 5
+const STALE_THRESHOLD_IMPLEMENT_MINUTES = 30 // Longer threshold during implement (tasks take time)
 
 interface Project {
   id: string
@@ -49,42 +50,41 @@ export function StatusView({ project, state, tasksData }: StatusViewProps) {
   const isStepFailed = step?.status === 'failed'
 
   // Check for stale state (in_progress for more than threshold)
+  // During implement, also check tasks.md updates since that's where activity happens
   const isStaleState = (() => {
     if (step?.status !== 'in_progress') return false
-    // Use _fileMtime (added by watcher) or last_updated
-    const lastUpdate = (state as Record<string, unknown>)._fileMtime || state.last_updated
-    if (!lastUpdate || typeof lastUpdate !== 'string') return false
-    const lastUpdateTime = new Date(lastUpdate).getTime()
+
+    // Get the most recent update time from multiple sources
+    const stateUpdate = (state as Record<string, unknown>)._fileMtime || state.last_updated
+    const tasksUpdate = tasksData?.lastUpdated
+
+    // Find most recent activity
+    const timestamps = [stateUpdate, tasksUpdate].filter((t): t is string => !!t)
+    if (timestamps.length === 0) return false
+
+    const mostRecentTime = Math.max(...timestamps.map(t => new Date(t).getTime()))
     const now = Date.now()
-    const diffMinutes = (now - lastUpdateTime) / 1000 / 60
-    return diffMinutes > STALE_THRESHOLD_MINUTES
+    const diffMinutes = (now - mostRecentTime) / 1000 / 60
+
+    // Use longer threshold during implement step (tasks take time)
+    const threshold = step?.current === 'implement'
+      ? STALE_THRESHOLD_IMPLEMENT_MINUTES
+      : STALE_THRESHOLD_MINUTES
+
+    return diffMinutes > threshold
   })()
 
   // Check if there's an active phase
   const hasActivePhase = phase?.number || phase?.name
 
-  // Use tasks data for progress if available, fall back to state file only if there's an active phase
+  // Use tasks data for progress - only show progress when we can actually read tasks.md
+  // Don't fall back to state.orchestration.progress since it can be stale from a previous phase
   let progressData: { tasks_completed: number; tasks_total: number; percentage: number } | undefined
   if (tasksData && tasksData.totalCount > 0) {
     progressData = {
       tasks_completed: tasksData.completedCount,
       tasks_total: tasksData.totalCount,
       percentage: Math.round((tasksData.completedCount / tasksData.totalCount) * 100),
-    }
-  } else if (hasActivePhase) {
-    // Only fall back to state progress data if there's an active phase
-    // (prevents showing stale data when between phases)
-    const stateProgress = (state as Record<string, unknown>).orchestration as Record<string, unknown> | undefined
-    const stateProgressData = stateProgress?.progress as { tasks_completed?: number | string; tasks_total?: number | string; percentage?: number | string } | undefined
-    if (stateProgressData && stateProgressData.tasks_total) {
-      const total = Number(stateProgressData.tasks_total)
-      if (total > 0) {
-        progressData = {
-          tasks_completed: Number(stateProgressData.tasks_completed) || 0,
-          tasks_total: total,
-          percentage: Number(stateProgressData.percentage) || 0,
-        }
-      }
     }
   }
 

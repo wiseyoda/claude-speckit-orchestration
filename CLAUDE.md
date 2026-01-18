@@ -68,6 +68,8 @@ specflow state set orchestration.step.current=verify
 specflow mark T007              # Single task
 specflow mark T007 T008 T009    # Multiple tasks
 specflow mark T007..T010        # Range
+specflow mark T007 --blocked "waiting for API"  # Mark as blocked with reason
+specflow mark T007 --incomplete # Mark as incomplete
 specflow mark V-001             # Single verification item
 specflow mark V-001 V-002       # Multiple checklist items
 specflow mark I-001             # Implementation checklist item

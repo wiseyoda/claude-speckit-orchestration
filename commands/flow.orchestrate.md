@@ -91,8 +91,8 @@ Response structure:
 | Argument | Action |
 |----------|--------|
 | `status` | Display status and exit |
-| `reset` | `specflow state set orchestration.step.current=design orchestration.step.index=0`, resume |
-| `skip-to X` | `specflow state set orchestration.step.current=X orchestration.step.index=N`, resume |
+| `reset` | `specflow state set orchestration.step.current=design orchestration.step.index=0 orchestration.step.status=in_progress`, resume |
+| `skip-to X` | `specflow state set orchestration.step.current=X orchestration.step.index=N orchestration.step.status=in_progress`, resume |
 
 **Step index mapping:** design=0, analyze=1, implement=2, verify=3
 
@@ -127,7 +127,7 @@ This command:
 **If phase exists but step is null:**
 
 ```bash
-specflow state set orchestration.step.current=design orchestration.step.index=0
+specflow state set orchestration.step.current=design orchestration.step.index=0 orchestration.step.status=in_progress
 ```
 
 **Verify phase file exists:**
@@ -163,7 +163,7 @@ specflow check --gate design
 If gate passes, update state:
 
 ```bash
-specflow state set orchestration.step.current=analyze orchestration.step.index=1
+specflow state set orchestration.step.current=analyze orchestration.step.index=1 orchestration.step.status=in_progress
 ```
 
 ---
@@ -204,7 +204,7 @@ IF max iterations reached with issues remaining:
 - Analysis must complete with no critical issues
 
 ```bash
-specflow state set orchestration.step.current=implement orchestration.step.index=2
+specflow state set orchestration.step.current=implement orchestration.step.index=2 orchestration.step.status=in_progress
 ```
 
 ---
@@ -269,7 +269,7 @@ specflow check --gate implement
 If gate passes:
 
 ```bash
-specflow state set orchestration.step.current=verify orchestration.step.index=3
+specflow state set orchestration.step.current=verify orchestration.step.index=3 orchestration.step.status=in_progress
 ```
 
 ---
