@@ -110,19 +110,13 @@ install_specflow() {
   fi
 
   # Create directories
-  mkdir -p "$SPECFLOW_HOME"/{bin,scripts/bash/lib,templates,packages}
+  mkdir -p "$SPECFLOW_HOME"/{bin,templates,packages}
   mkdir -p "$SPECFLOW_COMMANDS"
 
-  # Copy CLI
+  # Copy CLI dispatcher
   log_info "Installing CLI..."
   cp "${REPO_DIR}/bin/specflow" "${SPECFLOW_BIN}/specflow"
   chmod +x "${SPECFLOW_BIN}/specflow"
-
-  # Copy scripts
-  log_info "Installing scripts..."
-  cp "${REPO_DIR}/scripts/bash/lib/"*.sh "${SPECFLOW_HOME}/scripts/bash/lib/"
-  cp "${REPO_DIR}/scripts/bash/"*.sh "${SPECFLOW_HOME}/scripts/bash/" 2>/dev/null || true
-  chmod +x "${SPECFLOW_HOME}/scripts/bash/"*.sh 2>/dev/null || true
 
   # Copy templates
   log_info "Installing templates..."
@@ -320,7 +314,7 @@ check_status() {
     # Check components
     echo "Components:"
     [[ -x "${SPECFLOW_BIN}/specflow" ]] && log_success "  CLI: installed" || log_warn "  CLI: missing"
-    [[ -d "${SPECFLOW_HOME}/scripts" ]] && log_success "  Scripts: installed" || log_warn "  Scripts: missing"
+    [[ -d "${SPECFLOW_HOME}/packages/cli/dist" ]] && log_success "  CLI (TypeScript): built" || log_warn "  CLI (TypeScript): not built"
     [[ -d "${SPECFLOW_HOME}/templates" ]] && log_success "  Templates: installed" || log_warn "  Templates: missing"
     [[ -d "${SPECFLOW_HOME}/packages/dashboard" ]] && log_success "  Dashboard: installed" || log_warn "  Dashboard: missing"
 

@@ -3,24 +3,17 @@
 > Approved technologies and versions for SpecFlow.
 
 **Last Updated**: 2026-01-18
-**Constitution Alignment**: Principles II (POSIX-Compliant Bash), IIa (TypeScript for CLI), III (CLI Over Direct Edits)
+**Constitution Alignment**: Principles IIa (TypeScript for CLI), III (CLI Over Direct Edits)
 
 ---
 
 ## Core Technologies
 
-### Shell & Scripting
+### Runtime Dependencies
 | Technology | Version | Purpose | Notes |
 |------------|---------|---------|-------|
-| Bash | 3.2+ | Shell scripting | POSIX-compliant, macOS default |
-| jq | 1.6+ | JSON processing | Required dependency |
+| Node.js | 18+ | JavaScript runtime | Required for CLI |
 | git | 2.x | Version control | Required dependency |
-
-### Validation
-| Technology | Version | Purpose | Notes |
-|------------|---------|---------|-------|
-| shellcheck | Latest | Script linting | All scripts must pass |
-| bash -n | Built-in | Syntax check | Pre-commit validation |
 
 ---
 
@@ -93,11 +86,7 @@
 - **Commands**: `packages/cli/src/commands/`
 - **Libraries**: `packages/cli/src/lib/`
 - **Tests**: `packages/cli/tests/`
-- **Entry point**: `bin/specflow` (hybrid dispatcher)
-
-### Legacy Bash (Migration Complete)
-- **Scripts**: `scripts/bash/` (deprecated, most removed)
-- **Libraries**: `scripts/bash/lib/*.sh`
+- **Entry point**: `bin/specflow` (bash wrapper for Node.js)
 
 ### Slash Commands
 - **Commands**: `commands/flow.*.md`
@@ -116,9 +105,8 @@
 ### CLI Dependencies
 | Dependency | Required | Check Command | Install |
 |------------|----------|---------------|---------|
-| jq | Yes | `jq --version` | `brew install jq` / `apt install jq` |
+| Node.js | Yes | `node --version` | 18+ via nvm or brew |
 | git | Yes | `git --version` | System package manager |
-| uuidgen | Optional | `uuidgen --version` | Usually pre-installed |
 
 ### Dashboard Dependencies (Milestone 1)
 | Dependency | Required | Check Command | Install |
@@ -132,17 +120,17 @@
 
 | Pattern | Reason | Alternative |
 |---------|--------|-------------|
-| Non-POSIX bash features | Portability | Use POSIX-compliant syntax |
 | Direct JSON file edits | Consistency | Use `specflow state set` CLI |
-| Hardcoded paths | Portability | Use `get_*` functions from common.sh |
+| `any` type in TypeScript | Type safety | Use `unknown` or specific types |
 | Silent failures | Debuggability | Always log errors with context |
+| Untyped external data | Validation | Use Zod schemas |
 
 ---
 
 ## Adding New Technologies
 
 Before adding a new dependency:
-1. Check constitution alignment (POSIX compliance, CLI patterns)
+1. Check constitution alignment (TypeScript CLI patterns)
 2. Verify it works on both macOS and Linux
 3. Add fallback if dependency is optional
 4. Document in this file with rationale
