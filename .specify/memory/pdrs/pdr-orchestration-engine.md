@@ -9,7 +9,7 @@
 **PDR ID**: `pdr-orchestration-engine`
 **Created**: 2026-01-17
 **Author**: Agent (with user input)
-**Status**: Ready
+**Status**: Approved
 **Priority**: P2
 
 ---
@@ -161,6 +161,19 @@
 ## Related PDRs
 
 - None currently (this is foundational dashboard capability)
+
+## Implementation Phases
+
+This PDR is implemented across 6 phases:
+
+| Phase | Name | Focus |
+|-------|------|-------|
+| 1046 | Command JSON Output | Add --json flag to all CLI commands |
+| 1047 | Workflow Decomposition: Design | discover, design, check commands |
+| 1048 | Workflow Decomposition: Execution | implement --group, verify, merge |
+| 1050 | Workflow Runner | Server-side process management |
+| 1051 | Question UX | Toast, indicators, drawer panel |
+| 1052 | Dashboard Orchestration | Full workflow UI integration |
 
 ---
 

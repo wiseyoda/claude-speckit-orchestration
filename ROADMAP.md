@@ -44,7 +44,12 @@ This allows inserting urgent work without renumbering existing phases.
 | 1030 | Project Detail Views | ✅ Complete | **USER GATE**: Kanban and Timeline views work |
 | 1040 | CLI Actions from UI | ✅ Complete | **USER GATE**: Mark tasks, add backlog from UI |
 | 1045 | Project Actions & Health | ✅ Complete | **USER GATE**: Initialize, doctor, upgrade from UI |
-| 1050 | Agent SDK Integration | ⬜ Not Started | **USER GATE**: Spawn agent, see logs, answer questions |
+| 1046 | Command JSON Output | ⬜ Not Started | All commands support --json flag |
+| 1047 | Workflow Decomposition: Design | ⬜ Not Started | discover, design, check commands work |
+| 1048 | Workflow Decomposition: Execution | ⬜ Not Started | implement --group, verify, merge standalone |
+| 1050 | Workflow Runner | ⬜ Not Started | **USER GATE**: Server-side workflow execution |
+| 1051 | Question UX | ⬜ Not Started | **USER GATE**: Toast, indicators, drawer panel |
+| 1052 | Dashboard Orchestration | ⬜ Not Started | **USER GATE**: Start workflow, progress, summary |
 | 1060 | Operations Dashboard | ⬜ Not Started | **USER GATE**: Queue view, notifications, resource monitor |
 | 1070 | Cost Analytics | ⬜ Not Started | **USER GATE**: Token costs per session and trends |
 
@@ -85,9 +90,11 @@ speckit phase list --complete
 | **Gate 3** | 1030 | Project detail with Kanban/Timeline views, view preference persists |
 | **Gate 4** | 1040 | Mark task complete, add backlog item, keyboard shortcuts work |
 | **Gate 4.5** | 1045 | Initialize project, run doctor, upgrade v1→v2 from dashboard |
-| **Gate 5** | 1050 | Spawn agent, see real-time logs, answer questions, queue tasks, cancel |
-| **Gate 6** | 1060 | Operations view, desktop notifications, resource usage visible |
-| **Gate 7** | 1070 | Session costs, project totals, trend charts, CSV export |
+| **Gate 5** | 1050 | Start workflow from API, browser-independent execution, multi-project |
+| **Gate 5.5** | 1051 | Toast notification, question indicators, drawer panel works |
+| **Gate 6** | 1052 | Start workflow from UI, see progress, view summary after completion |
+| **Gate 7** | 1060 | Operations view, desktop notifications, resource usage visible |
+| **Gate 8** | 1070 | Session costs, project totals, trend charts, CSV export |
 
 ---
 
