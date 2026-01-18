@@ -2,8 +2,8 @@
 
 > Approved technologies and versions for SpecFlow.
 
-**Last Updated**: 2026-01-12
-**Constitution Alignment**: Principles II (POSIX-Compliant Bash), III (CLI Over Direct Edits)
+**Last Updated**: 2026-01-18
+**Constitution Alignment**: Principles II (POSIX-Compliant Bash), IIa (TypeScript for CLI), III (CLI Over Direct Edits)
 
 ---
 
@@ -22,11 +22,29 @@
 | shellcheck | Latest | Script linting | All scripts must pass |
 | bash -n | Built-in | Syntax check | Pre-commit validation |
 
-### Testing
+---
+
+## TypeScript CLI (packages/cli/)
+
+### Core Libraries
 | Technology | Version | Purpose | Notes |
 |------------|---------|---------|-------|
-| bash | 3.2+ | Test runner | Custom test-runner.sh |
-| assert functions | Custom | Assertions | In test-runner.sh |
+| TypeScript | 5.7+ | Type safety | Strict mode enabled |
+| Commander.js | 12.x | CLI framework | Subcommands, options parsing |
+| chalk | 5.x | Terminal colors | ESM-native |
+| glob | 11.x | File pattern matching | Modern glob implementation |
+
+### Build & Test
+| Technology | Version | Purpose | Notes |
+|------------|---------|---------|-------|
+| tsup | 8.x | Bundler | ESM output, fast builds |
+| Vitest | 2.x | Test framework | Fast, ESM-native, watch mode |
+| memfs | Latest | FS mocking | In-memory filesystem for tests |
+
+### Validation
+| Technology | Version | Purpose | Notes |
+|------------|---------|---------|-------|
+| Zod | 3.x | Runtime validation | Via @specflow/shared |
 
 ---
 
@@ -35,8 +53,8 @@
 ### Frontend
 | Technology | Version | Purpose | Notes |
 |------------|---------|---------|-------|
-| Next.js | 14+ | React framework | App router, API routes |
-| React | 18+ | UI library | Server components supported |
+| Next.js | 16.x | React framework | App router, API routes |
+| React | 19.x | UI library | Server components supported |
 | Tailwind CSS | 3.x | Styling | Utility-first CSS |
 | shadcn/ui | Latest | Components | Copy-paste, accessible |
 | TypeScript | 5.x | Type safety | Strict mode enabled |
@@ -70,11 +88,20 @@
 
 ## File Conventions
 
-### CLI (Core)
-- **Scripts**: `scripts/bash/specflow-*.sh`
+### CLI (TypeScript)
+- **Source**: `packages/cli/src/`
+- **Commands**: `packages/cli/src/commands/`
+- **Libraries**: `packages/cli/src/lib/`
+- **Tests**: `packages/cli/tests/`
+- **Entry point**: `bin/specflow` (hybrid dispatcher)
+
+### Legacy Bash (Migration Complete)
+- **Scripts**: `scripts/bash/` (deprecated, most removed)
 - **Libraries**: `scripts/bash/lib/*.sh`
-- **Templates**: `templates/*.md`, `templates/*.yaml`
-- **Commands**: `commands/specflow.*.md`
+
+### Slash Commands
+- **Commands**: `commands/flow.*.md`
+- **Templates**: `templates/*.md`
 
 ### Web Dashboard (Milestone 1)
 - **Dashboard app**: `packages/dashboard/` (Next.js app)
