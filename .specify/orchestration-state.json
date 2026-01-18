@@ -1,56 +1,32 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
   "project": {
     "id": "d9faf772-66c0-476e-bf4f-c9a33e7b248b",
-    "name": "claude-speckit-orchestration",
-    "path": "/Users/ppatterson/dev/claude-speckit-orchestration",
-    "description": null,
-    "type": null,
-    "criticality": null,
-    "created_at": "2026-01-11T06:27:38Z",
-    "updated_at": "2026-01-18T04:04:09Z"
+    "name": "specflow",
+    "path": "/Users/ppatterson/dev/specflow"
   },
-  "config": {
-    "roadmap_path": "ROADMAP.md",
-    "memory_path": ".specify/memory/",
-    "specs_path": "specs/",
-    "scripts_path": "~/.claude/speckit-system/scripts/",
-    "templates_path": ".specify/templates/"
-  },
-  "interview": {
-    "status": "not_started",
-    "current_phase": 0,
-    "current_question": 0,
-    "decisions_count": 0,
-    "phases": {},
-    "started_at": null,
-    "completed_at": null
-  },
+  "last_updated": "2026-01-18T08:54:32.943Z",
   "orchestration": {
     "phase": {
-      "number": "null",
-      "name": "null",
-      "branch": "null",
-      "status": "complete"
+      "number": null,
+      "name": null,
+      "branch": null,
+      "status": "not_started"
     },
     "next_phase": {
       "number": "0076",
       "name": "Command Rebrand"
     },
     "step": {
-      "current": "null",
-      "index": "null",
-      "status": "null"
+      "current": "design",
+      "index": 0,
+      "status": "not_started"
     },
+    "implement": null,
     "progress": {
-      "tasks_completed": 25,
-      "tasks_total": 25,
-      "percentage": 100
-    },
-    "implement": {
-      "current_tasks": [],
-      "current_section": null,
-      "started_at": null
+      "tasks_completed": "11",
+      "tasks_total": "53",
+      "percentage": "21"
     },
     "steps": {
       "implement": {
@@ -63,6 +39,22 @@
     "status": "ready",
     "last_check": "2026-01-18T04:04:09Z",
     "issues": []
+  },
+  "config": {
+    "roadmap_path": "ROADMAP.md",
+    "memory_path": ".specify/memory/",
+    "specs_path": "specs/",
+    "scripts_path": "~/.claude/specflow/scripts/",
+    "templates_path": ".specify/templates/"
+  },
+  "interview": {
+    "status": "not_started",
+    "current_phase": 0,
+    "current_question": 0,
+    "decisions_count": 0,
+    "phases": {},
+    "started_at": null,
+    "completed_at": null
   },
   "actions": {
     "available": [],
@@ -190,6 +182,5 @@
   "ui": {
     "last_sync": null,
     "notifications": []
-  },
-  "last_updated": "2026-01-18T04:26:35Z"
+  }
 }
