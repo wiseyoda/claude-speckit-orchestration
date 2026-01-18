@@ -193,3 +193,141 @@ vol.fromJSON({ '/project/tasks.md': tasksContent });
 4. Write describe/it blocks with clear names
 5. Run with `pnpm --filter @specflow/cli test <name>`
 6. Verify coverage with `test:coverage`
+
+---
+
+# Integration & E2E Testing
+
+> Strategy for testing CLI commands against real file systems and the full workflow.
+
+---
+
+## Integration Test Approach
+
+Integration tests verify that CLI commands work correctly with actual file operations and real project structures.
+
+### When to Use Integration Tests
+
+| Scenario | Unit Test | Integration Test |
+|----------|-----------|------------------|
+| Parsing logic (tasks.md, ROADMAP.md) | ✅ | - |
+| JSON output format | ✅ | - |
+| Command execution flow | ✅ | - |
+| Full `specflow status` with real project | - | ✅ |
+| Git operations (branch, commit) | - | ✅ |
+| Multi-command workflows | - | ✅ |
+
+### Integration Test Structure
+
+```
+packages/cli/tests/
+├── integration/           # Integration tests
+│   ├── status.int.test.ts
+│   ├── phase-lifecycle.int.test.ts
+│   └── fixtures/
+│       └── sample-project/
+│           ├── .specify/
+│           ├── ROADMAP.md
+│           └── specs/
+```
+
+### Running Integration Tests
+
+```bash
+# Run only integration tests
+pnpm --filter @specflow/cli test:integration
+
+# Full test suite (unit + integration)
+pnpm --filter @specflow/cli test:all
+```
+
+---
+
+## E2E Testing Strategy
+
+End-to-end tests verify the complete SpecFlow workflow from project initialization through phase completion.
+
+### E2E Test Scenarios
+
+| Scenario | Commands Tested | Verification |
+|----------|-----------------|--------------|
+| Fresh project setup | `specflow status`, `specflow phase open` | State file created, phase active |
+| Complete phase cycle | `mark`, `check`, `phase close` | ROADMAP updated, phase archived |
+| Error recovery | Invalid state, missing files | Helpful error messages, graceful handling |
+
+### E2E Test Pattern
+
+```typescript
+// tests/e2e/phase-lifecycle.e2e.test.ts
+import { execSync } from 'child_process';
+import { mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+describe('Phase Lifecycle E2E', () => {
+  let testDir: string;
+
+  beforeEach(() => {
+    testDir = mkdtempSync(join(tmpdir(), 'specflow-e2e-'));
+    // Create minimal project structure
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true });
+  });
+
+  it('should complete full phase lifecycle', () => {
+    // 1. Initialize
+    execSync('specflow phase open 0010 test-phase', { cwd: testDir });
+
+    // 2. Verify state
+    const status = execSync('specflow status --json', { cwd: testDir });
+    expect(JSON.parse(status.toString())).toMatchObject({
+      phase: { number: '0010', status: 'in_progress' },
+    });
+
+    // 3. Complete phase
+    execSync('specflow phase close', { cwd: testDir });
+
+    // 4. Verify archived
+    const finalStatus = execSync('specflow status --json', { cwd: testDir });
+    expect(JSON.parse(finalStatus.toString()).phase.status).toBe('complete');
+  });
+});
+```
+
+---
+
+## CI Integration
+
+### GitHub Actions Workflow
+
+```yaml
+# .github/workflows/test.yml
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: pnpm install
+      - run: pnpm build:cli
+      - run: pnpm test:cli        # Unit tests
+      # - run: pnpm test:integration  # Integration tests (future)
+```
+
+### Test Matrix
+
+| Test Type | macOS | Linux | Windows |
+|-----------|-------|-------|---------|
+| Unit (Vitest + memfs) | ✅ | ✅ | ⬜ |
+| Integration | ✅ | ✅ | ⬜ |
+| E2E | ✅ | ✅ | ⬜ |
+
+Windows support is not prioritized (Constitution: macOS + Linux focus).

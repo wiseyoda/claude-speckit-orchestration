@@ -15,6 +15,10 @@
 | **Orchestration** | Automated execution of the full SpecFlow workflow (discover → verify, 9 steps) |
 | **Memory Documents** | Project-level docs capturing decisions and principles in `.specify/memory/` |
 | **Discovery** | Codebase examination and clarifying questions BEFORE writing specs |
+| **PDR** | Product Decision Record - documents WHAT to build and WHY, not HOW |
+| **ABBC** | Phase numbering format: A=milestone, BB=phase, C=hotfix (e.g., 0010, 0021) |
+| **USER GATE** | Verification checkpoint requiring explicit user approval before proceeding |
+| **Hotfix** | Urgent phase inserted between existing phases using ABBC C-digit (0021 after 0020) |
 
 ---
 
@@ -28,6 +32,7 @@
 | `ROADMAP.md` | Master phase list and status | Repository root |
 | `constitution.md` | Core principles and governance | `.specify/memory/` |
 | `orchestration-state.json` | Current workflow state | `.specify/` |
+| `pdr-*.md` | Product Decision Record (feature requirements) | `.specify/memory/pdrs/` |
 
 ---
 
