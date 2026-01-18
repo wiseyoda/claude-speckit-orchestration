@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SpecFlow v3.0 is a spec-driven development framework for Claude Code. This repository contains the development source - changes are deployed to users via `./install.sh` which copies files to `~/.claude/`.
 
+**Auto-install**: A PostToolUse hook in `.claude/` automatically runs `./install.sh` after pushing to main.
+
 ## Commands
 
 ```bash
