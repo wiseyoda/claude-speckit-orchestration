@@ -3,8 +3,9 @@
 **PDR ID**: `pdr-ui-design-artifacts`
 **Created**: 2026-01-11
 **Author**: Agent (with user review)
-**Status**: Implemented
+**Status**: Fully Implemented
 **Phase**: 0050 - UX Simplification
+**Updated**: 2026-01-18 - All acceptance criteria complete
 **Priority**: P1
 
 ---
@@ -118,8 +119,8 @@
 
 ## Open Questions
 
-- [ ] Should we add UI design to the verification checklist automatically?
-- [ ] Should `design.md` have a template, or be free-form?
+- [x] Should we add UI design to the verification checklist automatically? → **Answer**: Yes, V-UI1 through V-UI5 items added automatically
+- [x] Should `design.md` have a template, or be free-form? → **Answer**: Template at `templates/ui-design-template.md`
 - [x] Should CLI output be included? → **Answer**: No, Visual UI only (user decision)
 
 ---
@@ -128,12 +129,12 @@
 
 ### Must Complete
 
-1. [ ] **Detection logic** added to `/specflow.specify`:
-   - Scan phase scope/goal for UI keywords
-   - Keywords: dashboard, form, button, screen, page, view, component, interface, modal, dialog, panel, widget, layout, navigation, menu, sidebar, header, footer
-   - If detected: create `specs/XXXX/ui/` folder
+1. [x] **Detection logic** added to `/flow.design` (v3.0):
+   - Scan spec.md for UI keywords after SPECIFY phase
+   - Keywords: dashboard, form, button, screen, page, view, component, modal, dialog, panel, widget, layout, navigation, menu, sidebar, header, footer, table, list, tab
+   - If detected: create `specs/XXXX/ui-design.md` (flat file, not subfolder per v3.0 decision)
 
-2. [ ] **design.md** created with structure:
+2. [x] **ui-design.md** created with structure:
    ```markdown
    # UI/UX Design: [Phase Name]
 
@@ -157,22 +158,24 @@
    | [name] | [button/form/panel/etc] | [description] |
    ```
 
-3. [ ] **Inline references** in `spec.md`:
-   - Where requirements mention UI elements, add: `(see [ui/design.md](ui/design.md#section))`
+3. [x] **Inline references** in `spec.md`:
+   - Where requirements mention UI elements, add: `(see [ui-design.md](ui-design.md#section))`
    - Link to specific sections using anchors
+   - Added in step 2.5c of flow.design.md
 
-4. [ ] **Plan verification** in `/specflow.plan`:
-   - Check if phase is UI-related (from spec or scope keywords)
-   - If yes, verify `ui/design.md` exists
-   - If missing, create it (with TODO markers)
-   - Reference design in implementation approach
+4. [x] **Plan context loading** in `/flow.design` PLAN phase (v3.0):
+   - PLAN phase loads ui-design.md if exists
+   - Design informs implementation approach
 
-5. [ ] **Template** created at `templates/ui-design-template.md`
+5. [x] **Template** created at `templates/ui-design-template.md`
 
 ### Should Complete
 
-6. [ ] Add to verification checklist: "UI implementation matches design.md"
-7. [ ] Gate check in `/specflow.gate implement` for UI phases
+6. [x] Add to verification checklist: "UI implementation matches ui-design.md"
+   - Step 5d in flow.design.md adds V-UI1 through V-UI5 verification items
+7. [x] Gate check in `specflow check --gate implement` for UI phases
+   - checkImplementGate in check.ts detects UI keywords in spec.md
+   - If UI phase but no ui-design.md, gate fails with "UI phase missing ui-design.md"
 
 ---
 

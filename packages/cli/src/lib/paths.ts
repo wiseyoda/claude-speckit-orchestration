@@ -51,6 +51,11 @@ export function getPhasesDir(projectPath: string = process.cwd()): string {
   return join(getSpecifyDir(projectPath), 'phases');
 }
 
+/** Get the archive directory for a project */
+export function getArchiveDir(projectPath: string = process.cwd()): string {
+  return join(getSpecifyDir(projectPath), 'archive');
+}
+
 /** Check if a path exists */
 export function pathExists(path: string): boolean {
   return existsSync(path);

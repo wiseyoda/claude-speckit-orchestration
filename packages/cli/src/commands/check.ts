@@ -107,6 +107,24 @@ async function checkDesignGate(featureDir: string | undefined): Promise<GateResu
 }
 
 /**
+ * UI detection keywords (matches flow.design.md section 2.5)
+ */
+const UI_KEYWORDS = [
+  // Layout
+  'dashboard', 'screen', 'page', 'view', 'layout', 'panel', 'sidebar', 'header', 'footer',
+  // Components
+  'form', 'button', 'modal', 'dialog', 'widget', 'card', 'table', 'list', 'menu', 'navigation', 'tab',
+];
+
+/**
+ * Check if spec content contains UI elements
+ */
+function detectUIElements(specContent: string): boolean {
+  const lowerContent = specContent.toLowerCase();
+  return UI_KEYWORDS.some(keyword => lowerContent.includes(keyword));
+}
+
+/**
  * Check implement gate
  */
 async function checkImplementGate(featureDir: string | undefined): Promise<GateResult> {
@@ -124,16 +142,47 @@ async function checkImplementGate(featureDir: string | undefined): Promise<GateR
     const allComplete = tasks.progress.completed === tasks.progress.total;
     const noBlocked = tasks.progress.blocked === 0;
 
-    const checks = {
+    const checks: Record<string, boolean> = {
       tasks_complete: allComplete,
       no_blocked_tasks: noBlocked,
     };
 
-    const passed = allComplete && noBlocked;
+    // Check UI design for UI phases
+    const context = await getProjectContext();
+    const artifacts = context.activeFeature?.artifacts;
+
+    if (artifacts) {
+      // Read spec to detect UI elements
+      const specPath = join(featureDir, 'spec.md');
+      if (pathExists(specPath)) {
+        try {
+          const specContent = await readFile(specPath, 'utf-8');
+          const isUIPhase = detectUIElements(specContent);
+
+          if (isUIPhase) {
+            // UI phase should have ui-design.md
+            checks.ui_design_exists = artifacts.uiDesign;
+          }
+        } catch {
+          // Ignore spec read errors
+        }
+      }
+    }
+
+    const passed = Object.values(checks).every(Boolean);
+
+    let reason: string | undefined;
+    if (!passed) {
+      if (!allComplete) {
+        reason = `${tasks.progress.total - tasks.progress.completed} tasks incomplete`;
+      } else if (checks.ui_design_exists === false) {
+        reason = 'UI phase missing ui-design.md';
+      }
+    }
 
     return {
       passed,
-      reason: passed ? undefined : `${tasks.progress.total - tasks.progress.completed} tasks incomplete`,
+      reason,
       checks,
     };
   } catch {

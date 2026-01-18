@@ -248,13 +248,14 @@ export function hasPendingUserGates(roadmap: RoadmapData): boolean {
 
 /**
  * Status text mapping for ROADMAP.md updates
+ * Includes emoji indicators for visual scanning
  */
 const STATUS_TEXT: Record<PhaseStatus, string> = {
-  not_started: 'Not Started',
-  in_progress: 'In Progress',
-  complete: 'Complete',
-  awaiting_user: 'Awaiting User',
-  blocked: 'Blocked',
+  not_started: '⬜ Not Started',
+  in_progress: '🔄 In Progress',
+  complete: '✅ Complete',
+  awaiting_user: '⏳ Awaiting User',
+  blocked: '🚫 Blocked',
 };
 
 /**

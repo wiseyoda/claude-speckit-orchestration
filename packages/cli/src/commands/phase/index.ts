@@ -39,9 +39,10 @@ phaseCommand
 
 phaseCommand
   .command('close')
-  .description('Close current phase (archives, updates ROADMAP)')
+  .description('Close current phase (archives, updates ROADMAP, cleans up specs)')
   .option('--json', 'Output as JSON')
   .option('--dry-run', 'Show what would happen without making changes')
+  .option('--keep-specs', 'Keep specs directory instead of archiving')
   .action(closeAction);
 
 phaseCommand

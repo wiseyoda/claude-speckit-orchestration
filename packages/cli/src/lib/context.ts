@@ -21,6 +21,7 @@ export interface FeatureArtifacts {
   discovery: boolean;
   spec: boolean;
   requirements: boolean;
+  uiDesign: boolean;
   plan: boolean;
   tasks: boolean;
   checklists: {
@@ -66,6 +67,7 @@ async function checkFeatureArtifacts(featureDir: string): Promise<FeatureArtifac
     discovery: pathExists(join(featureDir, 'discovery.md')),
     spec: pathExists(join(featureDir, 'spec.md')),
     requirements: pathExists(join(featureDir, 'requirements.md')),
+    uiDesign: pathExists(join(featureDir, 'ui-design.md')),
     plan: pathExists(join(featureDir, 'plan.md')),
     tasks: pathExists(join(featureDir, 'tasks.md')),
     checklists: {

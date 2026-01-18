@@ -1,0 +1,538 @@
+import { Command } from 'commander';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { join, basename } from 'node:path';
+import { createInterface } from 'node:readline';
+import chalk from 'chalk';
+import { output, success, info, warn, error as logError, header } from '../lib/output.js';
+import { handleError } from '../lib/errors.js';
+import { findProjectRoot, getSpecifyDir, pathExists } from '../lib/paths.js';
+import {
+  detectRepoVersion,
+  getVersionDescription,
+  type RepoVersion,
+  type DetectionResult,
+} from '../lib/detect.js';
+import {
+  setupFullScaffolding,
+  findLegacyScripts,
+  removeLegacyScripts,
+} from '../lib/scaffold.js';
+import { migrateManifest, migrateState, getMigrationSteps } from '../lib/migrate.js';
+import { rewriteProject, previewRewrite, findSpeckitReferences } from '../lib/rewrite.js';
+import { registerProject, isRegistered } from '../lib/registry.js';
+import { readState } from '../lib/state.js';
+
+/**
+ * Upgrade command output
+ */
+export interface UpgradeOutput {
+  success: boolean;
+  dryRun: boolean;
+  detection: {
+    version: RepoVersion;
+    confidence: string;
+    indicators: string[];
+  };
+  actions: {
+    scaffolding: {
+      created: string[];
+      existing: string[];
+    };
+    manifest: {
+      action: string;
+      details?: string;
+    };
+    state: {
+      action: string;
+      details?: string;
+    };
+    templates: {
+      copied: string[];
+      skipped: string[];
+    };
+    rewrites: {
+      files: number;
+      replacements: number;
+    };
+    legacyRemoved: string[];
+  };
+  migrationGuide: string;
+  errors: string[];
+  nextSteps: string[];
+}
+
+/**
+ * Prompt user for confirmation
+ */
+async function promptConfirm(message: string): Promise<boolean> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`${message} [y/N] `, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Generate migration guide content
+ */
+function generateMigrationGuide(
+  detection: DetectionResult,
+  actions: UpgradeOutput['actions'],
+  errors: string[],
+): string {
+  const now = new Date().toISOString();
+
+  let content = `# SpecFlow Migration Guide
+
+Generated: ${now}
+
+## Summary
+
+- **Source Version**: ${getVersionDescription(detection.version)}
+- **Target Version**: SpecFlow v3.0
+- **Confidence**: ${detection.confidence}
+
+## Detection Indicators
+
+${detection.indicators.map((i) => `- ${i}`).join('\n')}
+
+## Automated Changes Applied
+
+### Scaffolding
+${actions.scaffolding.created.length > 0 ? actions.scaffolding.created.map((d) => `- ✅ Created: ${d}`).join('\n') : '- No new directories created'}
+
+### Manifest
+- ${actions.manifest.action === 'migrated' || actions.manifest.action === 'created' ? '✅' : '⏭️'} ${actions.manifest.details || actions.manifest.action}
+
+### State File
+- ${actions.state.action === 'migrated' || actions.state.action === 'created' ? '✅' : '⏭️'} ${actions.state.details || actions.state.action}
+
+### Templates
+${actions.templates.copied.length > 0 ? actions.templates.copied.map((t) => `- ✅ Synced: ${t}`).join('\n') : '- Templates already up to date'}
+
+### Command References
+- ${actions.rewrites.replacements} replacements across ${actions.rewrites.files} files
+
+### Legacy Cleanup
+${actions.legacyRemoved.length > 0 ? actions.legacyRemoved.map((l) => `- ✅ ${l}`).join('\n') : '- No legacy scripts found'}
+
+`;
+
+  if (errors.length > 0) {
+    content += `## Errors During Migration
+
+${errors.map((e) => `- ❌ ${e}`).join('\n')}
+
+`;
+  }
+
+  content += `## Manual Actions Required
+
+Review the following items and complete any that apply:
+
+### High Priority
+- [ ] Review ROADMAP.md for accurate phase statuses
+- [ ] Verify memory documents are complete and up-to-date
+- [ ] Check CLAUDE.md has project-specific instructions
+- [ ] Run \`specflow check\` to validate project health
+
+### If Coming From v1.0
+- [ ] Create ROADMAP.md with phase overview (see template)
+- [ ] Set up memory/constitution.md with project principles
+- [ ] Archive any specifications/ content to .specify/memory/
+
+### If Coming From v2.0
+- [ ] Review any remaining /speckit references not auto-converted
+- [ ] Update any custom scripts that reference speckit CLI
+- [ ] Check .specify/templates/ for customizations to preserve
+
+## Verification Checklist
+
+After completing manual actions:
+
+- [ ] \`specflow status\` shows correct project state
+- [ ] \`specflow check\` passes all gates
+- [ ] \`specflow next\` provides actionable guidance
+- [ ] All team members have updated to SpecFlow v3.0 CLI
+
+## Next Steps
+
+1. Run \`/flow.doctor migrate\` for intelligent analysis
+2. Complete the manual actions above
+3. Commit the migration changes
+4. Continue development with SpecFlow v3.0
+
+---
+
+*This guide was auto-generated by \`specflow upgrade\`. For help, see the SpecFlow documentation.*
+`;
+
+  return content;
+}
+
+/**
+ * Run the upgrade process
+ */
+async function runUpgrade(options: {
+  dryRun?: boolean;
+  force?: boolean;
+}): Promise<UpgradeOutput> {
+  const projectPath = findProjectRoot() || process.cwd();
+  const projectName = basename(projectPath);
+
+  // Initialize output
+  const result: UpgradeOutput = {
+    success: false,
+    dryRun: options.dryRun ?? false,
+    detection: {
+      version: 'uninitialized',
+      confidence: 'low',
+      indicators: [],
+    },
+    actions: {
+      scaffolding: { created: [], existing: [] },
+      manifest: { action: 'none' },
+      state: { action: 'none' },
+      templates: { copied: [], skipped: [] },
+      rewrites: { files: 0, replacements: 0 },
+      legacyRemoved: [],
+    },
+    migrationGuide: '',
+    errors: [],
+    nextSteps: [],
+  };
+
+  // Step 1: Detect version
+  const detection = await detectRepoVersion(projectPath);
+  result.detection = {
+    version: detection.version,
+    confidence: detection.confidence,
+    indicators: detection.indicators,
+  };
+
+  // Handle uninitialized repos
+  if (detection.version === 'uninitialized') {
+    result.errors.push('No SDD artifacts found. Run /flow.init to initialize a new project.');
+    result.nextSteps = ['Run /flow.init to initialize this project'];
+    return result;
+  }
+
+  // Handle already v3.0 - but check if history needs to be added
+  if (detection.version === 'v3.0') {
+    // Check if state is missing history
+    const { extractHistoryFromRoadmap } = await import('../lib/migrate.js');
+    const statePath = join(getSpecifyDir(projectPath), 'orchestration-state.json');
+    let needsHistoryUpdate = false;
+
+    if (pathExists(statePath)) {
+      try {
+        const content = await import('node:fs/promises').then(fs => fs.readFile(statePath, 'utf-8'));
+        const state = JSON.parse(content);
+        const existingHistory = state?.actions?.history || [];
+        if (existingHistory.length === 0) {
+          // Try to extract history from ROADMAP
+          const extractedHistory = await extractHistoryFromRoadmap(projectPath);
+          if (extractedHistory.length > 0 || !state?.actions) {
+            needsHistoryUpdate = true;
+            // Update state with history
+            const updatedState = {
+              ...state,
+              actions: {
+                available: state?.actions?.available || [],
+                pending: state?.actions?.pending || [],
+                history: extractedHistory,
+              },
+            };
+            await import('node:fs/promises').then(fs =>
+              fs.writeFile(statePath, JSON.stringify(updatedState, null, 2) + '\n')
+            );
+            result.actions.state = {
+              action: 'updated',
+              details: extractedHistory.length > 0
+                ? `Added ${extractedHistory.length} phases to history from ROADMAP`
+                : 'Added empty actions structure',
+            };
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    result.success = true;
+    result.nextSteps = needsHistoryUpdate
+      ? ['History updated - run specflow check to validate']
+      : ['Already at v3.0 - run specflow check to validate'];
+    return result;
+  }
+
+  // If dry run, just preview changes
+  if (options.dryRun) {
+    // Preview scaffolding
+    const { verifyScaffolding } = await import('../lib/scaffold.js');
+    const scaffoldStatus = await verifyScaffolding(projectPath);
+    result.actions.scaffolding.created = scaffoldStatus.missing;
+    result.actions.scaffolding.existing = scaffoldStatus.present;
+
+    // Preview manifest/state changes
+    result.actions.manifest = {
+      action: 'will migrate',
+      details: `From ${detection.version} to v3.0`,
+    };
+    result.actions.state = {
+      action: 'will migrate',
+      details: `From schema ${detection.stateSchemaVersion || 'unknown'} to 3.0`,
+    };
+
+    // Preview rewrites
+    const rewritePreview = await previewRewrite(projectPath);
+    result.actions.rewrites = {
+      files: rewritePreview.files.length,
+      replacements: rewritePreview.totalReplacements,
+    };
+
+    // Preview legacy cleanup
+    const legacyScripts = await findLegacyScripts(projectPath);
+    result.actions.legacyRemoved = legacyScripts.map((s) => `Will backup: ${s}`);
+
+    result.success = true;
+    result.nextSteps = ['Run specflow upgrade without --dry-run to apply changes'];
+    return result;
+  }
+
+  // Step 2: Create scaffolding
+  const scaffoldResult = await setupFullScaffolding(projectPath, {
+    forceTemplates: options.force,
+  });
+  result.actions.scaffolding = {
+    created: scaffoldResult.scaffold.created,
+    existing: scaffoldResult.scaffold.existing,
+  };
+  result.actions.templates = {
+    copied: scaffoldResult.templates.copied,
+    skipped: scaffoldResult.templates.skipped,
+  };
+  result.errors.push(...scaffoldResult.scaffold.errors);
+  result.errors.push(...scaffoldResult.templates.errors);
+
+  // Step 3: Migrate manifest
+  const manifestResult = await migrateManifest(projectPath, projectName);
+  result.actions.manifest = {
+    action: manifestResult.action,
+    details: manifestResult.details,
+  };
+  if (manifestResult.error) {
+    result.errors.push(`Manifest: ${manifestResult.error}`);
+  }
+
+  // Step 4: Migrate state
+  const stateResult = await migrateState(projectPath, projectName);
+  result.actions.state = {
+    action: stateResult.action,
+    details: stateResult.details,
+  };
+  if (stateResult.error) {
+    result.errors.push(`State: ${stateResult.error}`);
+  }
+
+  // Step 4b: Register project in global registry
+  try {
+    const state = await readState(projectPath);
+    if (state?.project?.id && !isRegistered(state.project.id)) {
+      registerProject(state.project.id, state.project.name || projectName, projectPath);
+    }
+  } catch {
+    // Non-fatal: registration is nice-to-have
+  }
+
+  // Step 5: Rewrite command references
+  const rewriteResult = await rewriteProject(projectPath);
+  result.actions.rewrites = {
+    files: rewriteResult.files.length,
+    replacements: rewriteResult.totalReplacements,
+  };
+  result.errors.push(...rewriteResult.errors);
+
+  // Step 6: Handle legacy scripts
+  const removedScripts = await removeLegacyScripts(projectPath);
+  result.actions.legacyRemoved = removedScripts;
+
+  // Step 7: Generate migration guide
+  const migrationGuide = generateMigrationGuide(detection, result.actions, result.errors);
+  result.migrationGuide = migrationGuide;
+
+  // Write migration guide
+  const guidePath = join(getSpecifyDir(projectPath), 'specflow-migration-guide.md');
+  try {
+    await writeFile(guidePath, migrationGuide);
+  } catch (err) {
+    result.errors.push(`Could not write migration guide: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Set next steps
+  result.nextSteps = [
+    'Review .specify/specflow-migration-guide.md',
+    'Complete manual actions in the guide',
+    'Run /flow.doctor migrate for intelligent analysis',
+    'Run specflow check to validate',
+  ];
+
+  result.success = result.errors.length === 0;
+  return result;
+}
+
+/**
+ * Format human-readable upgrade output
+ */
+function formatHumanReadable(result: UpgradeOutput): string {
+  const lines: string[] = [];
+
+  // Header
+  if (result.dryRun) {
+    lines.push(chalk.yellow('DRY RUN - No changes will be made'));
+    lines.push('');
+  }
+
+  // Detection
+  lines.push(chalk.bold('Detection'));
+  lines.push(`  Version: ${result.detection.version}`);
+  lines.push(`  Confidence: ${result.detection.confidence}`);
+  lines.push('');
+
+  // Handle special cases
+  if (result.detection.version === 'uninitialized') {
+    lines.push(chalk.yellow('No SDD artifacts found.'));
+    lines.push('Run /flow.init to initialize a new project.');
+    return lines.join('\n');
+  }
+
+  if (result.detection.version === 'v3.0') {
+    lines.push(chalk.green('✓ Already at v3.0'));
+    lines.push('Run specflow check to validate project health.');
+    return lines.join('\n');
+  }
+
+  // Actions summary
+  lines.push(chalk.bold('Actions'));
+
+  // Scaffolding
+  if (result.actions.scaffolding.created.length > 0) {
+    lines.push(`  ${chalk.green('✓')} Created ${result.actions.scaffolding.created.length} directories`);
+  }
+
+  // Manifest
+  const manifestIcon = result.actions.manifest.action === 'error' ? chalk.red('✗') : chalk.green('✓');
+  lines.push(`  ${manifestIcon} Manifest: ${result.actions.manifest.action}`);
+
+  // State
+  const stateIcon = result.actions.state.action === 'error' ? chalk.red('✗') : chalk.green('✓');
+  lines.push(`  ${stateIcon} State: ${result.actions.state.action}`);
+
+  // Templates
+  if (result.actions.templates.copied.length > 0) {
+    lines.push(`  ${chalk.green('✓')} Synced ${result.actions.templates.copied.length} templates`);
+  }
+
+  // Rewrites
+  if (result.actions.rewrites.replacements > 0) {
+    lines.push(`  ${chalk.green('✓')} Updated ${result.actions.rewrites.replacements} references in ${result.actions.rewrites.files} files`);
+  }
+
+  // Legacy
+  if (result.actions.legacyRemoved.length > 0) {
+    lines.push(`  ${chalk.green('✓')} Backed up ${result.actions.legacyRemoved.length} legacy items`);
+  }
+
+  lines.push('');
+
+  // Errors
+  if (result.errors.length > 0) {
+    lines.push(chalk.bold.red('Errors'));
+    for (const err of result.errors) {
+      lines.push(`  ${chalk.red('✗')} ${err}`);
+    }
+    lines.push('');
+  }
+
+  // Next steps
+  if (result.nextSteps.length > 0) {
+    lines.push(chalk.bold('Next Steps'));
+    for (const step of result.nextSteps) {
+      lines.push(`  → ${step}`);
+    }
+  }
+
+  // Final status
+  lines.push('');
+  if (result.success) {
+    lines.push(chalk.green('✓ Upgrade complete'));
+  } else {
+    lines.push(chalk.yellow('⚠ Upgrade completed with errors'));
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Upgrade command
+ */
+export const upgradeCommand = new Command('upgrade')
+  .description('Upgrade project from SpecKit v1.0/v2.0 to SpecFlow v3.0')
+  .option('--dry-run', 'Preview changes without applying them')
+  .option('--force', 'Overwrite existing templates')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    try {
+      // If dry run, just show preview
+      if (options.dryRun) {
+        const result = await runUpgrade({ dryRun: true });
+
+        if (options.json) {
+          output(result);
+        } else {
+          console.log(formatHumanReadable(result));
+        }
+
+        // If there are changes to apply, prompt for confirmation
+        if (
+          result.detection.version !== 'uninitialized' &&
+          result.detection.version !== 'v3.0'
+        ) {
+          console.log('');
+          const confirmed = await promptConfirm('Apply these changes?');
+
+          if (confirmed) {
+            const applyResult = await runUpgrade({ force: options.force });
+            console.log('');
+            console.log(formatHumanReadable(applyResult));
+          } else {
+            console.log('Upgrade cancelled.');
+          }
+        }
+
+        return;
+      }
+
+      // Run upgrade
+      const result = await runUpgrade({ force: options.force });
+
+      if (options.json) {
+        output(result);
+      } else {
+        console.log(formatHumanReadable(result));
+      }
+
+      // Exit with error code if upgrade failed
+      if (!result.success && result.errors.length > 0) {
+        process.exit(1);
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  });

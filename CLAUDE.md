@@ -45,7 +45,8 @@ packages/cli/                → TypeScript CLI implementation
 │       ├── context.ts      → Project context resolution
 │       ├── health.ts       → Health check logic
 │       ├── state.ts        → State file operations
-│       └── paths.ts        → Path resolution
+│       ├── paths.ts        → Path resolution
+│       └── specs.ts        → Spec cleanup/archiving
 ├── tests/                  → Vitest tests
 └── dist/                   → Compiled output
 
@@ -81,8 +82,9 @@ specflow phase                  # Show current phase
 specflow phase open 0081        # Start a specific phase
 specflow phase open --hotfix    # Create and start a hotfix phase (auto-number)
 specflow phase open --hotfix "Code Review"  # Hotfix with custom name
-specflow phase close            # Close current phase
+specflow phase close            # Close current phase (archives specs)
 specflow phase close --dry-run  # Preview close operations
+specflow phase close --keep-specs  # Keep specs directory instead of archiving
 specflow phase defer "item"     # Add item to BACKLOG.md
 specflow phase defer "item1" "item2"  # Add multiple items
 specflow phase add 0010 "core-engine"  # Add phase to ROADMAP
@@ -105,14 +107,25 @@ specflow phase add 0020 "api-poc" --user-gate --gate "API works"  # With USER GA
 3. Test: `pnpm --filter @specflow/cli test`
 4. Run: `specflow <command>`
 
-## Key Files
+## Artifact Lifecycle
 
-- `ROADMAP.md` - Development phases and backlog
-- `.specify/phases/` - Individual phase detail files
-- `.specify/memory/constitution.md` - Project principles
+SpecFlow creates these artifacts in target projects:
+
+| Location | Purpose | Lifecycle |
+|----------|---------|-----------|
+| `specs/NNNN-name/` | Active phase artifacts (spec.md, plan.md, tasks.md, checklists/) | Created during phase, archived on close |
+| `.specify/archive/NNNN-name/` | Archived phase specs | Created on `phase close` |
+| `.specify/phases/NNNN.md` | Future/in-progress phase details | Until phase closes |
+| `.specify/history/HISTORY.md` | Archived phase summaries | Appended on `phase close` |
+| `ROADMAP.md` | Phase overview table | Updated on `phase close` |
+| `BACKLOG.md` | Deferred items | Accumulated during verify |
+| `.specify/memory/` | Evergreen project knowledge | Continuously updated |
+
+## Key Files (This Repo)
+
 - `packages/cli/` - TypeScript CLI source
-- `commands/flow.orchestrate.md` - Main workflow command (`/flow.orchestrate`)
-- `commands/flow.design.md` - Design artifacts command (`/flow.design`)
+- `commands/flow.*.md` - Claude Code slash commands (`/flow.orchestrate`, `/flow.design`)
+- `.specify/memory/constitution.md` - Project principles
 
 ## Important Notes
 

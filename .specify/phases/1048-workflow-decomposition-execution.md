@@ -3,48 +3,88 @@ phase: 1048
 name: workflow-decomposition-execution
 status: not_started
 created: 2026-01-17
+updated: 2026-01-18
 pdr: pdr-orchestration-engine.md
 ---
 
 ### 1048 - Workflow Decomposition: Execution Phase
 
-**Goal**: Refactor implement, verify, and merge commands to work in bounded context windows with comprehensive JSON output.
+**Goal**: Create CLI commands for execution workflow phases (implement, verify, merge) with task grouping for bounded context windows.
+
+**Current State (3.0)**:
+- `/flow.implement` skill exists, executes tasks via `specflow next --json` loop
+- Tasks are executed one-by-one in dependency order
+- No task grouping - entire implement runs in one Claude session
+- `/flow.verify` and `/flow.merge` exist as skills
+- `specflow check --gate implement` validates task completion
+- `specflow mark T###` marks tasks complete
+
+**Problem**:
+- Large task lists (50+ tasks) exceed context window
+- No way to batch/retry task groups
+- Dashboard can't track granular progress
 
 **Scope**:
-- Refactor `implement` to work with task groups (not all tasks at once)
-- Enhance tasks.md format to define logical task groups
-- Create `implement --group N` to run specific task group
-- Ensure `verify` works standalone with JSON output
-- Ensure `merge` works standalone with JSON output
-- Each implement batch stays under 200k context
+- Add task group support to tasks.md format (already has sections, formalize as groups)
+- Create `specflow workflow implement` CLI command with:
+  - `--group <N>` to run specific task group
+  - `--list-groups` to show available groups with status
+  - Bounded context per group (~20 tasks max)
+- Create `specflow workflow verify` CLI wrapper
+- Create `specflow workflow merge` CLI wrapper
+- All commands support `--json` streaming output
 
 **User Stories**:
-1. As a dashboard, I run `implement --group 1 --json` for first batch of tasks
-2. As a dashboard, I see which tasks completed in the JSON response
-3. As a dashboard, I retry failed task groups with error context
-4. As a developer, task groups are logical (related files together)
+1. As a dashboard, I run `specflow workflow implement --list-groups --json` to see task groups
+2. As a dashboard, I run `specflow workflow implement --group 1 --json` for first batch
+3. As a dashboard, I retry failed groups with error context
+4. As a dashboard, I run `specflow workflow verify --json` after all groups complete
+5. As a developer, task groups map to logical sections in tasks.md
+
+**Task Group Format** (tasks.md):
+```markdown
+## Progress Dashboard
+Total: 0/25 | Blocked: 0
+
+## Group 1: Setup (0/5)
+- [ ] T001 Create project structure in `src/`
+- [ ] T002 Configure build system in `package.json`
+...
+
+## Group 2: Core Components (0/10)
+- [ ] T006 Implement base service in `src/services/base.ts`
+...
+
+## Group 3: Integration (0/7)
+- [ ] T016 Wire up API endpoints in `src/routes/`
+...
+
+## Group 4: Polish (0/3)
+- [ ] T023 Add error handling across all services
+...
+```
 
 **Deliverables**:
-- Enhanced tasks.md format with explicit task groups:
-  ```markdown
-  ## Group 1: Core Components
-  - [ ] T001: Create base component
-  - [ ] T002: Add styling
+- Update `flow.implement` to respect task groups
+- `specflow workflow implement` command with:
+  - `--group <N>` flag
+  - `--list-groups` flag
+  - `--json` streaming output (events: task_started, task_complete, task_failed, group_complete)
+  - Returns: tasks_completed, tasks_failed, files_modified, next_group
+- `specflow workflow verify --json` wrapper for `/flow.verify`
+- `specflow workflow merge --json` wrapper for `/flow.merge`
+- Update tasks.md template with group format
+- Update `specflow next` to be group-aware
 
-  ## Group 2: Integration
-  - [ ] T003: Wire up API
-  ```
-- `specflow implement --group N` command
-- `specflow implement --list-groups` to show available groups
-- Updated plan.md template to suggest task grouping
-- Standalone `verify --json` command
-- Standalone `merge --json` command
-- JSON output includes: tasks_completed, tasks_failed, files_modified, errors
+**Dependencies**:
+- Phase 1047 patterns (workflow command structure, streaming JSON)
+- Claude Code CLI programmatic control
 
 **Verification Gate**: Technical
-- Implement works with `--group` flag
-- Task groups stay under 200k context each
-- Verify and merge work standalone
-- Full orchestrate workflow still works
+- Task groups execute independently
+- Each group stays under 200k context
+- Failed groups can be retried
+- Full workflow still works via `/flow.orchestrate`
+- Existing tasks.md files continue to work (groups optional)
 
 **Estimated Complexity**: High

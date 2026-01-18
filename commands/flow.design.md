@@ -37,6 +37,7 @@ Produce all design artifacts for the current phase:
 | `discovery.md` | Codebase examination and clarified user intent |
 | `spec.md` | Feature specification with requirements |
 | `requirements.md` | Requirements quality checklist |
+| `ui-design.md` | Visual mockups and rationale (if UI phase) |
 | `plan.md` | Technical implementation plan |
 | `tasks.md` | Actionable task list |
 | `checklists/implementation.md` | Implementation guidance |
@@ -172,12 +173,48 @@ Fix any reported issues (max 3 iterations).
 
 ---
 
+### 2.5 UI DESIGN Phase (Conditional)
+
+**Trigger**: Spec.md references visual UI elements.
+
+**Skip if**:
+- Starting from plan, tasks, or checklists
+- No visual UI elements detected in spec.md
+
+**Detection**: Scan spec.md for visual element keywords:
+- **Layout**: dashboard, screen, page, view, layout, panel, sidebar, header, footer
+- **Components**: form, button, modal, dialog, widget, card, table, list, menu, navigation, tab
+- **Visual actions**: display, render, show, hide, toggle (in UI context)
+
+**2.5a. Detect UI scope:**
+- Parse spec.md for UI keywords
+- If no UI elements found → skip to PLAN phase
+- If UI elements found → continue
+
+**2.5b. Create ui-design.md:**
+- Read template: `.specify/templates/ui-design-template.md`
+- Document **Current State**: Existing UI, or "New feature - no existing UI"
+- Create **Proposed Design**: Description + ASCII mockup
+- List **Component Inventory**: All UI elements with type and purpose
+- Document **Interactions**: User actions and system responses
+- Explain **Rationale**: Why these design decisions
+
+Write `{PHASE_DIR}/ui-design.md`
+
+**2.5c. Link in spec.md:**
+- Find sections in spec.md that reference UI elements
+- Add inline references: `(see [ui-design.md](ui-design.md#section-name))`
+- Link to specific sections using markdown anchors
+
+---
+
 ### 3. PLAN Phase
 
 **Skip if**: Starting from tasks or checklists.
 
 **3a. Load context:**
 - Read `spec.md`, `discovery.md`, `requirements.md`
+- Read `ui-design.md` (if exists, for visual implementation guidance)
 - Read `.specify/memory/constitution.md` (required)
 - Read template: `.specify/templates/plan-template.md`
 
@@ -278,6 +315,20 @@ Focus areas:
 - **Non-Functional Requirements**: Performance, security, accessibility specified?
 - **Dependencies & Assumptions**: Documented and validated?
 
+**5d. Add UI verification items (if ui-design.md exists):**
+
+If `ui-design.md` was created, add these items to verification.md:
+
+```markdown
+## UI Design Verification
+
+- [ ] V-UI1: UI implementation matches ui-design.md mockups
+- [ ] V-UI2: All components from Component Inventory are implemented
+- [ ] V-UI3: All interactions from Interactions table work as specified
+- [ ] V-UI4: Design constraints from ui-design.md are respected
+- [ ] V-UI5: Accessibility considerations from ui-design.md are addressed
+```
+
 ---
 
 ### 6. Completion
@@ -293,6 +344,7 @@ Design artifacts created:
 ├── discovery.md     - Codebase findings and decisions
 ├── spec.md          - Feature specification
 ├── requirements.md  - Requirements checklist
+├── ui-design.md     - Visual mockups (if UI phase)
 ├── plan.md          - Technical implementation plan
 ├── tasks.md         - X tasks across Y user stories
 └── checklists/

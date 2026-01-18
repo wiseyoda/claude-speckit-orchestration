@@ -157,6 +157,9 @@ main() {
     phase)
       run_ts_cli "phase" "$@"
       ;;
+    upgrade)
+      run_ts_cli "upgrade" "$@"
+      ;;
     help|--help|-h)
       show_help
       exit 0

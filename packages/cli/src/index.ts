@@ -6,6 +6,7 @@ import { nextCommand } from './commands/next.js';
 import { markCommand } from './commands/mark.js';
 import { checkCommand } from './commands/check.js';
 import { phaseCommand } from './commands/phase/index.js';
+import { upgradeCommand } from './commands/upgrade.js';
 
 const program = new Command()
   .name('specflow')
@@ -29,6 +30,7 @@ program.addCommand(nextCommand);
 program.addCommand(markCommand);
 program.addCommand(checkCommand);
 program.addCommand(phaseCommand);
+program.addCommand(upgradeCommand);
 
 // Parse and execute
 program.parse();
