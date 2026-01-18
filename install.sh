@@ -130,7 +130,7 @@ install_specflow() {
 
   # Copy packages (dashboard and shared) - exclude node_modules
   if [[ -d "${REPO_DIR}/packages" ]]; then
-    log_info "Installing packages (dashboard, shared)..."
+    log_info "Installing packages (dashboard, shared, cli)..."
     rm -rf "${SPECFLOW_HOME}/packages"
     mkdir -p "${SPECFLOW_HOME}/packages"
     # Use rsync to exclude node_modules and .next
@@ -142,9 +142,25 @@ install_specflow() {
       find "${SPECFLOW_HOME}/packages" -name "node_modules" -type d -exec rm -rf {} + 2>/dev/null || true
       find "${SPECFLOW_HOME}/packages" -name ".next" -type d -exec rm -rf {} + 2>/dev/null || true
     fi
-    # Copy pnpm-workspace.yaml for workspace dependencies
+    # Copy workspace files for pnpm
     if [[ -f "${REPO_DIR}/pnpm-workspace.yaml" ]]; then
       cp "${REPO_DIR}/pnpm-workspace.yaml" "${SPECFLOW_HOME}/"
+    fi
+    if [[ -f "${REPO_DIR}/package.json" ]]; then
+      cp "${REPO_DIR}/package.json" "${SPECFLOW_HOME}/"
+    fi
+
+    # Install CLI dependencies
+    log_info "Installing CLI dependencies..."
+    if command -v pnpm &>/dev/null; then
+      (cd "${SPECFLOW_HOME}" && pnpm install --prod --filter @specflow/cli --filter @specflow/shared 2>/dev/null) || {
+        log_warn "pnpm install failed, trying npm..."
+        (cd "${SPECFLOW_HOME}/packages/cli" && npm install --omit=dev 2>/dev/null) || log_warn "Could not install CLI dependencies"
+      }
+    elif command -v npm &>/dev/null; then
+      (cd "${SPECFLOW_HOME}/packages/cli" && npm install --omit=dev 2>/dev/null) || log_warn "Could not install CLI dependencies"
+    else
+      log_warn "Neither pnpm nor npm found - CLI may not work"
     fi
   fi
 
