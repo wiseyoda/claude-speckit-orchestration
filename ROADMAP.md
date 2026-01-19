@@ -53,12 +53,13 @@ This allows inserting urgent work without renumbering existing phases.
 | 1045  | Project Actions & Health          | ✅ Complete    | **USER GATE**: Initialize, doctor, upgrade from UI                 |
 | 1046 | Command JSON Output | ✅ Complete | All commands support --json flag |
 | 1047 | Workflow Decomposition: Design | ✅ Complete | discover, design, check commands work |
-| 1048  | Workflow Decomposition: Execution | ⬜ Not Started | implement --group, verify, merge standalone                        |
-| 1050  | Workflow Runner                   | ⬜ Not Started | **USER GATE**: Server-side workflow execution                      |
-| 1051  | Question UX                       | ⬜ Not Started | **USER GATE**: Toast, indicators, drawer panel                     |
-| 1052  | Dashboard Orchestration           | ⬜ Not Started | **USER GATE**: Start workflow, progress, summary                   |
-| 1060  | Operations Dashboard              | ⬜ Not Started | **USER GATE**: Queue view, notifications, resource monitor         |
-| 1070  | Cost Analytics                    | ⬜ Not Started | **USER GATE**: Token costs per session and trends                  |
+| 1048  | Workflow Foundation               | ⬜ Not Started | **USER GATE**: Start workflow for registered project via API       |
+| 1050  | Workflow UI                       | ⬜ Not Started | **USER GATE**: Start from card/detail, see status badges           |
+| 1051  | Questions & Notifications         | ⬜ Not Started | **USER GATE**: Browser notification, question drawer               |
+| 1052  | Session Viewer                    | ⬜ Not Started | **USER GATE**: View session JSONL, real-time streaming             |
+| 1055  | Smart Batching & Orchestration    | ⬜ Not Started | **USER GATE**: Auto-batch tasks, state machine, auto-healing       |
+| 1060  | Stats & Operations                | ⬜ Not Started | **USER GATE**: Costs on cards, operations page, basic chart        |
+| 1070  | Cost Analytics                    | ⬜ Not Started | **USER GATE**: Advanced charts, projections, export                |
 
 **Legend**: ⬜ Not Started | 🔄 In Progress | ✅ Complete | **USER GATE** = Requires user verification
 
@@ -98,11 +99,13 @@ specflow phase list --complete
 | **Gate 3**   | 1030  | Project detail with Kanban/Timeline views, view preference persists   |
 | **Gate 4**   | 1040  | Mark task complete, add backlog item, keyboard shortcuts work         |
 | **Gate 4.5** | 1045  | Initialize project, run doctor, upgrade v1→v2 from dashboard          |
-| **Gate 5**   | 1050  | Start workflow from API, browser-independent execution, multi-project |
-| **Gate 5.5** | 1051  | Toast notification, question indicators, drawer panel works           |
-| **Gate 6**   | 1052  | Start workflow from UI, see progress, view summary after completion   |
-| **Gate 7**   | 1060  | Operations view, desktop notifications, resource usage visible        |
-| **Gate 8**   | 1070  | Session costs, project totals, trend charts, CSV export               |
+| **Gate 5**   | 1048  | Start workflow for registered project via API, cancel workflow        |
+| **Gate 5.5** | 1050  | Start workflow from card/detail, skill picker, status badges update   |
+| **Gate 6**   | 1051  | Browser notification appears, question drawer works, follow-up works  |
+| **Gate 6.5** | 1052  | Session viewer shows JSONL messages, real-time streaming works        |
+| **Gate 7**   | 1055  | Auto-batching works, state machine transitions, auto-healing attempts |
+| **Gate 8**   | 1060  | Costs on cards, session history, basic chart, operations page         |
+| **Gate 9**   | 1070  | Advanced charts, projections, CSV/JSON export                         |
 
 ---
 
