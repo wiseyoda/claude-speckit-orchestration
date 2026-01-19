@@ -118,9 +118,12 @@ install_specflow() {
   cp "${REPO_DIR}/bin/specflow" "${SPECFLOW_BIN}/specflow"
   chmod +x "${SPECFLOW_BIN}/specflow"
 
-  # Copy templates
+  # Copy templates to both locations
   log_info "Installing templates..."
   cp "${REPO_DIR}/templates/"* "${SPECFLOW_HOME}/templates/" 2>/dev/null || true
+  # Also install to ~/.specflow/templates for CLI access
+  mkdir -p "${HOME}/.specflow/templates"
+  cp "${REPO_DIR}/templates/"* "${HOME}/.specflow/templates/" 2>/dev/null || true
 
   # Copy packages (dashboard and shared) - exclude node_modules
   if [[ -d "${REPO_DIR}/packages" ]]; then

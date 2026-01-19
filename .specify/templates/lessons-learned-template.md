@@ -131,7 +131,7 @@ Examples:
 This file should be:
 1. **Checked BEFORE starting implementation tasks** - Agents should scan for relevant entries
 2. **Updated AFTER encountering issues** - Add entries when problems are solved
-3. **Reviewed at phase completion** - During `/specflow.verify`, add any new learnings
+3. **Reviewed at phase completion** - During `/flow.verify`, add any new learnings
 
 ### Adding Entries
 

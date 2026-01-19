@@ -12,6 +12,7 @@
 #   state       Manage orchestration state
 #   phase       Manage phase lifecycle (open/close/status)
 #   workflow    Execute SpecFlow skills via Claude CLI
+#   templates   Manage project templates
 #   help        Show this help message
 #   version     Show version
 #
@@ -82,6 +83,10 @@ COMMANDS:
                   answer <id> <ans>   Answer a queued question
                   status              Check workflow status
                   [--json]            JSON output
+
+    templates   Manage project templates
+                  sync                Copy templates from ~/.specflow/templates
+                  [--force]           Overwrite existing templates
 
     help        Show this help message
     version     Show version
@@ -170,6 +175,9 @@ main() {
     workflow)
       run_ts_cli "workflow" "$@"
       ;;
+    templates)
+      run_ts_cli "templates" "$@"
+      ;;
     help|--help|-h)
       show_help
       exit 0
@@ -180,7 +188,7 @@ main() {
       ;;
     # Deprecated bash commands - fail with helpful message
     scaffold|context|ctx|feature|feat|git|roadmap|claude-md|claudemd|\
-    checklist|tasks|templates|doctor|detect|reconcile|memory|mem|\
+    checklist|tasks|doctor|detect|reconcile|memory|mem|\
     lessons|gate|migrate|manifest|import|pdr|issue|dashboard)
       deprecated_command "${command}"
       ;;

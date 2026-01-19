@@ -8,7 +8,7 @@ description: 'Implementation plan template'
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
-**Note**: This template is filled in by the `/specflow.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Note**: This template is filled in by the `/flow.design` command.
 
 ## Summary
 
@@ -44,12 +44,10 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 ```text
 specs/[###-feature]/
-├── plan.md              # This file (/specflow.plan command output)
-├── research.md          # Phase 0 output (/specflow.plan command)
-├── data-model.md        # Phase 1 output (/specflow.plan command)
-├── quickstart.md        # Phase 1 output (/specflow.plan command)
-├── contracts/           # Phase 1 output (/specflow.plan command)
-└── tasks.md             # Phase 2 output (/specflow.tasks command - NOT created by /specflow.plan)
+├── spec.md              # Feature specification (/flow.design)
+├── plan.md              # This file (/flow.design)
+├── tasks.md             # Task breakdown (/flow.design)
+└── checklists/          # Implementation & verification checklists (/flow.design)
 ```
 
 ### Source Code (repository root)

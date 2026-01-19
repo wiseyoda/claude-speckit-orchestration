@@ -1,150 +1,81 @@
----
-version: '1.0'
-description: 'SpecFlow CLI and slash command usage reference'
----
-
 # SpecFlow Usage Reference
 
-This document provides the complete CLI and slash command reference for SpecFlow.
+This document provides the CLI and slash command reference for SpecFlow v3.0.
 
 ## Quick Start
 
 ```bash
 # In terminal
-specflow --help           # CLI help
+specflow status              # Show project status
+specflow next                # Get next actionable task
 
 # In Claude Code
-/specflow.start           # Smart entry point - routes to right command
+/flow.orchestrate            # Full automated workflow
 ```
 
 ## CLI Commands
 
+### Smart Commands
+
+```bash
+specflow status              # Complete project status
+specflow next                # Next actionable task with context
+specflow mark T007           # Mark task complete
+specflow mark T007..T010     # Mark range of tasks
+specflow mark V-001          # Mark verification item
+specflow check               # Deep validation
+specflow check --fix         # Auto-fix issues
+specflow check --gate design # Check specific gate
+```
+
 ### State Management
 
 ```bash
-specflow state get [key]           # Show state (or specific key)
-specflow state set key=value       # Update state value (NOTE: use = not space)
-specflow state init                # Initialize new state file
-specflow state reset               # Reset state to defaults
-specflow state validate            # Check state file health
-```
-
-### Project Setup
-
-```bash
-specflow scaffold [--force]        # Create .specify/ structure
-specflow doctor [--fix]            # Diagnostics and auto-repair (shows suggested fixes)
-specflow detect                    # Detect existing content
-specflow templates sync            # Update outdated + copy new templates
-```
-
-### Git Operations
-
-```bash
-specflow git branch create <name>  # Create and checkout branch
-specflow git commit "<message>"    # Stage and commit
-specflow git push                  # Push current branch
-specflow git sync                  # Fetch all, show status
-```
-
-### ROADMAP Management
-
-```bash
-specflow roadmap status            # Show phase statuses
-specflow roadmap update <N> <status>  # Update phase (complete, in_progress, etc.)
-specflow roadmap next              # Get next pending phase
-specflow roadmap insert --after <N> "<name>"  # Insert new phase
-specflow roadmap defer <N>         # Defer phase to backlog
-```
-
-### Task Tracking
-
-```bash
-specflow tasks status              # Show completion percentage
-specflow tasks list [--incomplete] # List tasks
-specflow tasks mark T###           # Mark task complete
-```
-
-### Issue Tracking
-
-```bash
-specflow issue list [--open]       # List issues
-specflow issue create "<title>"    # Create new issue
-specflow issue close <id>          # Close an issue
-specflow issue show <id>           # Show issue details
+specflow state get <key>                    # Get state value
+specflow state set key=value                # Set state value
+specflow state get orchestration.phase      # Dot notation supported
 ```
 
 ### Phase Management
 
 ```bash
-specflow phase show <N>            # Show phase details
-specflow phase list                # List all phases
-specflow phase archive <N>         # Archive to HISTORY.md
-```
-
-### Memory Documents
-
-```bash
-specflow memory list               # List memory documents
-specflow memory check              # Verify document health
+specflow phase                              # Show current phase
+specflow phase open 0010                    # Start a specific phase
+specflow phase open --hotfix                # Create hotfix phase
+specflow phase close                        # Close current phase
+specflow phase close --dry-run              # Preview close
+specflow phase archive 0042                 # Archive completed phase
+specflow phase add 0010 "name"              # Add phase to ROADMAP
+specflow phase defer "item"                 # Add to BACKLOG.md
+specflow phase scan                         # Scan for incomplete tasks
 ```
 
 ## Slash Commands
 
-### Primary Entry Point
+### Primary Workflows
 
 ```
-/specflow.start                    # Auto-detect state, route to right command
+/flow.orchestrate            # Full automated workflow (design → implement → verify)
+/flow.design                 # Create spec, plan, tasks, checklists
+/flow.implement              # Execute tasks with TDD
+/flow.verify                 # Verify completion, update ROADMAP
+/flow.merge                  # Close phase, push, merge to main
 ```
 
-### Workflow Commands
+### Setup & Maintenance
 
 ```
-/specflow.init                     # Requirements interview
-/specflow.orchestrate              # Full automated workflow (9 steps)
-/specflow.orchestrate --no-discovery  # Skip codebase examination
-/specflow.specify                  # Create feature spec
-/specflow.clarify                  # Resolve ambiguities
-/specflow.plan                     # Create implementation plan
-/specflow.tasks                    # Generate task breakdown
-/specflow.analyze                  # Cross-artifact check
-/specflow.checklist                # Create verification checklist
-/specflow.implement                # Execute tasks
-/specflow.verify                   # Verify completion
-/specflow.merge                    # Complete phase, merge PR
+/flow.init                   # Project initialization interview
+/flow.memory                 # Verify and optimize memory documents
+/flow.roadmap                # Create/update ROADMAP.md
+/flow.doctor                 # Diagnose and migrate projects
 ```
 
-**Orchestrate steps**: discover → specify → clarify → plan → tasks → analyze → checklist → implement → verify
-
-### Memory Commands
+### Quality & Review
 
 ```
-/specflow.memory                   # Verify and reconcile memory docs
-/specflow.memory generate          # Generate docs from codebase analysis
-/specflow.constitution             # Create/update constitution
-```
-
-### Project Management
-
-```
-/specflow.roadmap                  # Create/update ROADMAP.md
-/specflow.backlog                  # Triage backlog items
-/specflow.phase                    # Create phases from PDRs
-/specflow.review                   # Systematic code review
-```
-
-## CLI Syntax Notes
-
-Important syntax patterns that differ from common conventions:
-
-```bash
-# State set uses key=value (NOT key value)
-specflow state set orchestration.phase.status=complete    # Correct
-specflow state set orchestration.phase.status complete    # Wrong
-
-# State get uses dot notation
-specflow state get orchestration.phase.status
-specflow state get orchestration --json
+/flow.analyze                # Cross-artifact consistency analysis
+/flow.review                 # Systematic code review
 ```
 
 ## Common Patterns
@@ -152,31 +83,24 @@ specflow state get orchestration --json
 ### Starting a New Phase
 
 ```bash
-# Option 1: Smart entry (recommended)
-/specflow.start
+# Option 1: Full automation (recommended)
+/flow.orchestrate
 
-# Option 2: Full automation
-/specflow.orchestrate
-
-# Option 3: Manual workflow
-/specflow.specify "Add user authentication"
-/specflow.clarify
-/specflow.plan
-/specflow.tasks
-# ... etc
+# Option 2: Just design
+/flow.design "Add user authentication"
 ```
 
 ### Completing a Phase
 
 ```bash
-# Verify all tasks complete
-specflow tasks status
+# Check status
+specflow status
 
-# Complete phase
-/specflow.merge
+# Verify completion
+/flow.verify
 
-# Or complete and start next phase
-/specflow.merge --next-phase
+# Complete and merge
+/flow.merge
 ```
 
 ### Resuming Work
@@ -185,32 +109,23 @@ specflow tasks status
 # Check current state
 specflow status
 
-# Resume via smart entry
-/specflow.start
+# Get next task
+specflow next
+
+# Resume workflow
+/flow.orchestrate
 ```
 
 ## Troubleshooting
 
-### Common Issues
-
 | Issue | Solution |
 |-------|----------|
-| "Command not found" | Check PATH includes `~/.claude/specflow-system/bin` |
-| State file corrupt | Run `specflow doctor --fix` |
-| Branch mismatch | Run `specflow reconcile` |
-| Missing artifacts | Re-run the producing step |
-| Missing templates | Run `specflow templates sync` |
-
-### Diagnostics
-
-```bash
-specflow doctor                    # Full diagnostic check
-specflow doctor --fix              # Auto-repair issues
-specflow status --json             # Current state as JSON
-```
+| Missing templates | `specflow check --fix` |
+| State file corrupt | `specflow check --fix` |
+| Missing artifacts | Re-run `/flow.design` |
 
 ## More Information
 
-- Full documentation: See `README.md` and `docs/` folder
-- CLI help: `specflow --help` or `specflow <command> --help`
-- Slash command help: Reference `commands/specflow.*.md` files
+- Project instructions: See `CLAUDE.md`
+- Memory documents: `.specify/memory/`
+- Templates: `.specify/templates/`

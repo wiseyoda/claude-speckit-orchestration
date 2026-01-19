@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, copyFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { output } from '../lib/output.js';
 import { readState, writeState, setStateValue } from '../lib/state.js';
@@ -8,7 +8,7 @@ import { readRoadmap, getPhaseByNumber } from '../lib/roadmap.js';
 import { readFeatureChecklists, areAllChecklistsComplete } from '../lib/checklist.js';
 import { getProjectContext, resolveFeatureDir, getMissingArtifacts } from '../lib/context.js';
 import { runHealthCheck, type HealthIssue } from '../lib/health.js';
-import { findProjectRoot, pathExists, getStatePath, getMemoryDir } from '../lib/paths.js';
+import { findProjectRoot, pathExists, getStatePath, getMemoryDir, getTemplatesDir, getSystemTemplatesDir } from '../lib/paths.js';
 import { handleError, NotFoundError } from '../lib/errors.js';
 import type { OrchestrationState } from '@specflow/shared';
 
@@ -390,7 +390,30 @@ async function applyFixes(
         });
       }
 
-      // Add other auto-fix handlers here as needed
+      if (issue.code === 'NO_TEMPLATES' || issue.code === 'MISSING_TEMPLATES') {
+        const systemTemplates = getSystemTemplatesDir();
+        const projectTemplates = getTemplatesDir(projectRoot);
+
+        // Ensure target directory exists
+        await mkdir(projectTemplates, { recursive: true });
+
+        // Copy all templates from system to project
+        const files = await readdir(systemTemplates);
+        let copied = 0;
+        for (const file of files) {
+          const src = join(systemTemplates, file);
+          const dest = join(projectTemplates, file);
+          // Only copy if destination doesn't exist or is missing templates issue
+          if (issue.code === 'NO_TEMPLATES' || !pathExists(dest)) {
+            await copyFile(src, dest);
+            copied++;
+          }
+        }
+        fixed.push({
+          code: issue.code,
+          action: `Copied ${copied} templates to .specify/templates/`,
+        });
+      }
     } catch {
       // Fix failed, continue
     }

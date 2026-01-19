@@ -8,6 +8,7 @@ import { checkCommand } from './commands/check.js';
 import { phaseCommand } from './commands/phase/index.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { workflowCommand } from './commands/workflow/index.js';
+import { templatesCommand } from './commands/templates.js';
 
 const program = new Command()
   .name('specflow')
@@ -33,6 +34,7 @@ program.addCommand(checkCommand);
 program.addCommand(phaseCommand);
 program.addCommand(upgradeCommand);
 program.addCommand(workflowCommand);
+program.addCommand(templatesCommand);
 
 // Parse and execute
 program.parse();

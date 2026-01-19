@@ -17,6 +17,11 @@ export function getSpecflowHome(): string {
   return join(homedir(), '.specflow');
 }
 
+/** Get the system templates directory (~/.specflow/templates) */
+export function getSystemTemplatesDir(): string {
+  return join(getSpecflowHome(), 'templates');
+}
+
 /** Get the registry file path - user scope */
 export function getRegistryPath(): string {
   return join(getSpecflowHome(), 'registry.json');

@@ -77,6 +77,12 @@ Options:
 - `.specify/phases/`
 - `specs/`
 
+**Copy templates** from installed location to `.specify/templates/`:
+```bash
+cp ~/.specflow/templates/*.md .specify/templates/
+cp ~/.specflow/templates/*.yaml .specify/templates/ 2>/dev/null || true
+```
+
 **Ensure `.gitignore` includes workflow session files:**
 - Check if `.gitignore` exists, create if not
 - Add `.specflow/workflows/` if not already present

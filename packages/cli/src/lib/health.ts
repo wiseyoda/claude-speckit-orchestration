@@ -9,6 +9,8 @@ import {
   getManifestPath,
   getRoadmapPath,
   getMemoryDir,
+  getTemplatesDir,
+  getSystemTemplatesDir,
   pathExists,
 } from './paths.js';
 import { readState } from './state.js';
@@ -155,6 +157,43 @@ async function collectIssues(projectPath?: string): Promise<HealthIssue[]> {
       fix: 'Run "/flow.init" to set up memory documents',
       autoFixable: false,
     });
+  }
+
+  // Check templates directory
+  const templatesDir = getTemplatesDir(root);
+  const systemTemplatesDir = getSystemTemplatesDir();
+  if (!pathExists(templatesDir)) {
+    // Templates dir doesn't exist at all
+    if (pathExists(systemTemplatesDir)) {
+      issues.push({
+        code: 'NO_TEMPLATES',
+        severity: 'warning',
+        message: 'No templates directory found',
+        fix: 'Run "specflow check --fix" to copy templates from system install',
+        autoFixable: true,
+      });
+    } else {
+      issues.push({
+        code: 'NO_TEMPLATES',
+        severity: 'warning',
+        message: 'No templates directory found (system templates also missing)',
+        fix: 'Reinstall SpecFlow with: ./install.sh',
+        autoFixable: false,
+      });
+    }
+  } else {
+    // Templates dir exists, check if it has required templates
+    const requiredTemplates = ['spec-template.md', 'plan-template.md', 'tasks-template.md'];
+    const missingTemplates = requiredTemplates.filter(t => !pathExists(join(templatesDir, t)));
+    if (missingTemplates.length > 0 && pathExists(systemTemplatesDir)) {
+      issues.push({
+        code: 'MISSING_TEMPLATES',
+        severity: 'warning',
+        message: `Missing templates: ${missingTemplates.join(', ')}`,
+        fix: 'Run "specflow check --fix" to copy missing templates',
+        autoFixable: true,
+      });
+    }
   }
 
   // Check for deprecated .specify/issues directory (removed in v3.0)
