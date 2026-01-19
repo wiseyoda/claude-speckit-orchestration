@@ -55,7 +55,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 1047 | Workflow Decomposition: Design | ✅ Complete | discover, design, check commands work |
 | 1048 | Workflow Foundation | ✅ Complete | **USER GATE**: Start workflow for registered project via API |
 | 1050 | Workflow UI | ✅ Complete | **USER GATE**: Start from card/detail, see status badges |
-| 1051 | Questions & Notifications | 🔄 In Progress | **USER GATE**: Browser notification, question drawer |
+| 1051 | Questions & Notifications | ✅ Complete | **USER GATE**: Browser notification, question drawer |
 | 1052  | Session Viewer                    | ⬜ Not Started | **USER GATE**: View session JSONL, real-time streaming             |
 | 1055  | Smart Batching & Orchestration    | ⬜ Not Started | **USER GATE**: Auto-batch tasks, state machine, auto-healing       |
 | 1060  | Stats & Operations                | ⬜ Not Started | **USER GATE**: Costs on cards, operations page, basic chart        |
