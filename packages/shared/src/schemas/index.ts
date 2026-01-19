@@ -57,3 +57,22 @@ export {
   type CommandExecution,
   type CommandHistoryEntry,
 } from './commands.js';
+
+export {
+  WorkflowEventTypeSchema,
+  WorkflowEventSchema,
+  QuestionOptionSchema,
+  QuestionStatusSchema,
+  QuestionSchema,
+  QuestionQueueSchema,
+  WorkflowStatusSchema,
+  WorkflowExecutionSchema,
+  type WorkflowEventType,
+  type WorkflowEvent,
+  type QuestionOption,
+  type QuestionStatus,
+  type Question,
+  type QuestionQueue,
+  type WorkflowStatus,
+  type WorkflowExecution,
+} from './workflow.js';

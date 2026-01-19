@@ -147,11 +147,14 @@ function parseTaskLine(line: string, lineNumber: number): Task | null {
   const match = line.match(/^-\s*\[[xX ~\-bB]\]\s*(.+)$/);
   if (!match) return null;
 
-  const description = match[1].trim();
-  const taskId = extractTaskId(description);
+  const fullDescription = match[1].trim();
+  const taskId = extractTaskId(fullDescription);
 
   // Require task ID for structured parsing
   if (!taskId) return null;
+
+  // Strip the task ID from the description to avoid duplication in output
+  const description = fullDescription.replace(/^\s*T\d{3}[a-z]?\s*/, '').trim();
 
   return {
     id: taskId,

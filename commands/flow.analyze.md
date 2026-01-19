@@ -94,12 +94,14 @@ specflow state set orchestration.step.current=implement orchestration.step.index
 ```
 Output: "Analysis clean. Ready for implementation."
 
-If **issues found**:
+If **issues found** (ANY severity, including LOW):
 - Stay in analyze step (do not advance)
-- Output: "Found N issues (X critical). Fix all before proceeding."
+- Output: "Found N issues. ALL must be fixed before proceeding."
+- **Do NOT dismiss issues as "minor" or "not requiring fixes"** - every inconsistency matters and can cause bugs during implementation
 
 ## Constraints
 
 - **Read-only**: Do NOT modify any files
 - **Constitution is non-negotiable**: Violations are always CRITICAL
 - **Deterministic**: Re-running produces consistent IDs and counts
+- **All severities block**: LOW/MEDIUM issues are not "minor" - they represent ambiguity that causes implementation bugs

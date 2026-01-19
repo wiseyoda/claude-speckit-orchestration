@@ -111,10 +111,23 @@ specflow phase add 0020 "api-poc" --user-gate --gate "API works"  # With USER GA
 
 ## Development Workflow
 
+**CRITICAL: The `specflow` command runs from `~/.claude/specflow-system/`, NOT from this repo.**
+
+```bash
+# Local testing (before committing)
+pnpm ship                              # Build + deploy locally
+
+# Production (auto-deploys via PostToolUse hook)
+git push origin main                   # Hook runs install.sh --upgrade
+```
+
+**Workflow:**
 1. Make changes in `packages/cli/src/`
-2. Build: `pnpm --filter @specflow/cli build`
-3. Test: `pnpm --filter @specflow/cli test`
-4. Run: `specflow <command>`
+2. Test: `pnpm test:cli`
+3. Local verify: `pnpm ship` then `specflow <command>`
+4. Commit and push to main (auto-deploys)
+
+**Do NOT just run `pnpm build:cli` and expect `specflow` to use your changes - you must deploy.**
 
 ## Artifact Lifecycle
 

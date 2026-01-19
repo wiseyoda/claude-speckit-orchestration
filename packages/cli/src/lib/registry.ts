@@ -51,12 +51,30 @@ export function writeRegistry(registry: Registry): void {
   writeFileSync(registryPath, JSON.stringify(registry, null, 2));
 }
 
+/** Check if a path is a temp/test directory that shouldn't be registered */
+function isTempPath(path: string): boolean {
+  const tempPatterns = [
+    '/tmp/',
+    '/private/tmp/',
+    '/private/var/folders/',
+    '/var/folders/',
+    'specflow-json-test',
+    'vitest',
+  ];
+  return tempPatterns.some((pattern) => path.includes(pattern));
+}
+
 /** Register a project in the registry */
 export function registerProject(
   id: string,
   name: string,
   path: string,
 ): void {
+  // Skip temp/test directories
+  if (isTempPath(path)) {
+    return;
+  }
+
   const registry = readRegistry();
 
   registry.projects[id] = {

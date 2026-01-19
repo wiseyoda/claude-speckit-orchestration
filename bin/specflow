@@ -11,6 +11,7 @@
 #   check       Deep validation with auto-fix
 #   state       Manage orchestration state
 #   phase       Manage phase lifecycle (open/close/status)
+#   workflow    Execute SpecFlow skills via Claude CLI
 #   help        Show this help message
 #   version     Show version
 #
@@ -75,6 +76,12 @@ COMMANDS:
                   close               Close current phase (archives, updates ROADMAP)
                   [--json]            JSON output
                   [--dry-run]         Show what would happen (close only)
+
+    workflow    Execute SpecFlow skills via Claude CLI
+                  design              Run /flow.design skill
+                  answer <id> <ans>   Answer a queued question
+                  status              Check workflow status
+                  [--json]            JSON output
 
     help        Show this help message
     version     Show version
@@ -159,6 +166,9 @@ main() {
       ;;
     upgrade)
       run_ts_cli "upgrade" "$@"
+      ;;
+    workflow)
+      run_ts_cli "workflow" "$@"
       ;;
     help|--help|-h)
       show_help

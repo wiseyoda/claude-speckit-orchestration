@@ -101,7 +101,11 @@ async function readState(projectId: string, statePath: string): Promise<Orchestr
       _fileMtime: stats.mtime.toISOString(),
     };
   } catch (error) {
-    // File doesn't exist or is invalid
+    // Silently return null for missing files (ENOENT)
+    // Only log actual errors
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return null;
+    }
     console.error(`[Watcher] Error reading state for ${projectId}:`, error);
     return null;
   }
@@ -157,7 +161,10 @@ async function readTasks(
     const parsed = parseTasks(content, projectId, options);
     return parsed;
   } catch (error) {
-    // File doesn't exist or is invalid
+    // Silently return null for missing files (ENOENT)
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      return null;
+    }
     console.error(`[Watcher] Error reading tasks for ${projectId}:`, error);
     return null;
   }

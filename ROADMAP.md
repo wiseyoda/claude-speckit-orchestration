@@ -52,7 +52,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 1040  | CLI Actions from UI               | ✅ Complete    | **USER GATE**: Mark tasks, add backlog from UI                     |
 | 1045  | Project Actions & Health          | ✅ Complete    | **USER GATE**: Initialize, doctor, upgrade from UI                 |
 | 1046 | Command JSON Output | ✅ Complete | All commands support --json flag |
-| 1047  | Workflow Decomposition: Design    | ⬜ Not Started | discover, design, check commands work                              |
+| 1047 | Workflow Decomposition: Design | 🔄 In Progress | discover, design, check commands work |
 | 1048  | Workflow Decomposition: Execution | ⬜ Not Started | implement --group, verify, merge standalone                        |
 | 1050  | Workflow Runner                   | ⬜ Not Started | **USER GATE**: Server-side workflow execution                      |
 | 1051  | Question UX                       | ⬜ Not Started | **USER GATE**: Toast, indicators, drawer panel                     |

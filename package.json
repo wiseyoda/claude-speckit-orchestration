@@ -7,6 +7,7 @@
     "build": "pnpm --filter @specflow/shared build && pnpm --filter @specflow/cli build && pnpm --filter @specflow/dashboard build",
     "build:cli": "pnpm --filter @specflow/cli build",
     "test:cli": "pnpm --filter @specflow/cli test",
+    "ship": "pnpm build:cli && ./install.sh --upgrade",
     "start": "pnpm --filter @specflow/dashboard start",
     "lint": "pnpm --filter @specflow/dashboard lint"
   },
