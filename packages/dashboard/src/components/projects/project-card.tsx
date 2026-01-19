@@ -260,8 +260,12 @@ export function ProjectCard({ project, state, tasks, isUnavailable = false, isDi
   const hasTasks = totalTasks > 0
   const allTasksComplete = hasTasks && completedTasks === totalTasks
 
-  // Ready to merge: either state says so, or all tasks are complete
-  const isReadyToMerge = phase?.status === 'ready_to_merge' || allTasksComplete
+  // Ready to merge: phase status must explicitly indicate verified/ready_to_merge
+  // Don't rely on task count alone - tasks can be complete while still in verify step
+  const isReadyToMerge =
+    phase?.status === 'ready_to_merge' ||
+    phase?.status === 'verified' ||
+    (allTasksComplete && step?.status === 'complete' && step?.current === 'verify')
 
   return (
     <Link href={`/projects/${project.id}`}>
