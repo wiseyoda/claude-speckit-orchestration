@@ -5,7 +5,7 @@
     "name": "specflow",
     "path": "/Users/ppatterson/dev/specflow"
   },
-  "last_updated": "2026-01-19T03:50:36.982Z",
+  "last_updated": "2026-01-19T04:27:42.689Z",
   "orchestration": {
     "phase": {
       "number": null,
@@ -304,6 +304,17 @@
           "output-patterns-in-code"
         ],
         "result": "no_promotions"
+      },
+      "1047": {
+        "reviewed_at": "2026-01-18",
+        "promotions": [],
+        "skipped": [
+          "stream-json-pattern-superseded",
+          "workflow-event-schema-superseded",
+          "question-queue-pattern-superseded"
+        ],
+        "result": "no_promotions",
+        "notes": "Superseded by POC in phases 1048+ using --json + --disallowedTools + --json-schema approach"
       },
       "0010": {
         "reviewed_at": "2026-01-18",
