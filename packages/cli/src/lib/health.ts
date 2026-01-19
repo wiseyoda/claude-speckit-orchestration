@@ -15,7 +15,8 @@ import {
 } from './paths.js';
 import { readState } from './state.js';
 import { readRoadmap, getPhaseByNumber } from './roadmap.js';
-import { getProjectContext, getMissingArtifacts } from './context.js';
+import { getProjectContext, getMissingArtifacts, resolveFeatureDir } from './context.js';
+import { readTasks } from './tasks.js';
 import type { OrchestrationState } from '@specflow/shared';
 
 /**
@@ -335,6 +336,28 @@ async function collectIssues(projectPath?: string): Promise<HealthIssue[]> {
             fix: 'Run "/flow.design" to generate missing artifacts',
             autoFixable: false,
           });
+        }
+
+        // Check if tasks.md exists but no tasks were parsed (format issue)
+        if (context.activeFeature.artifacts.tasks) {
+          try {
+            const featureDir = await resolveFeatureDir(undefined, root);
+            if (featureDir) {
+              const tasksData = await readTasks(featureDir);
+              if (tasksData.tasks.length === 0) {
+                issues.push({
+                  code: 'TASKS_FORMAT_ERROR',
+                  severity: 'warning',
+                  message: "tasks.md exists but no tasks found (likely format issue)",
+                  fix: "Expected format: '- [ ] T001 Description'. Task ID must be inline with checkbox. " +
+                    "Run '/flow.design --tasks' to regenerate with correct format.",
+                  autoFixable: false,
+                });
+              }
+            }
+          } catch {
+            // Task reading failed - not a format issue, just missing file
+          }
         }
       }
     } catch {

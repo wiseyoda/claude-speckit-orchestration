@@ -129,6 +129,16 @@ async function getNextTask(featureDir: string): Promise<NextTaskOutput | NextNon
   const nextTask = findNextTask(tasksData);
 
   if (!nextTask) {
+    // Check if no tasks were parsed at all (likely format issue)
+    if (tasksData.tasks.length === 0) {
+      return {
+        action: 'none',
+        reason: 'no_tasks_found',
+        suggestion: "No tasks found in tasks.md. Expected format: '- [ ] T001 Description'. " +
+          "Task ID must be inline with checkbox, not as a header. See tasks-template.md for examples.",
+      };
+    }
+
     const allComplete = tasksData.tasks.every(t => t.status === 'done');
     if (allComplete) {
       return {

@@ -292,6 +292,16 @@ Components:
 4. `[US#]`: Only for user story phase tasks
 5. Description with file path
 
+**⚠️ DO NOT use these incorrect formats:**
+```markdown
+### T001: Task as header        ❌ WRONG - CLI cannot parse
+- [ ] Subtask without ID        ❌ WRONG - no task ID
+
+## T001 Header style            ❌ WRONG - not a checkbox item
+```
+
+The task ID MUST be inline with the checkbox. The CLI parses `- [ ] T###` patterns only.
+
 **4c. Validate tasks:**
 - Every task has ID, description, file path
 - User story tasks have `[US#]` label
@@ -300,6 +310,15 @@ Components:
 **4d. Write tasks.md:**
 
 Write `{PHASE_DIR}/tasks.md` using template with Progress Dashboard.
+
+**4e. Verify task format (REQUIRED):**
+
+After writing tasks.md, verify the CLI can parse it:
+```bash
+specflow status --json
+```
+
+Check `tasks.total` > 0. If tasks.total is 0 but you wrote tasks, the format is wrong. Re-read the format requirements above and regenerate tasks.md with correct inline task IDs.
 
 ---
 
