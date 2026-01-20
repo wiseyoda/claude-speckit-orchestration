@@ -20,6 +20,7 @@ $ARGUMENTS
 ```
 
 Arguments:
+
 - Empty: Run full verification (tasks, checklists, memory, user gate)
 - `--dry-run`: Verify without closing phase (preview mode)
 - `--skip-memory`: Skip memory document compliance check
@@ -58,6 +59,7 @@ specflow status --json
 ```
 
 Parse the JSON to understand:
+
 - Current phase number and name
 - Active feature directory
 - Task completion status
@@ -83,6 +85,7 @@ This verifies all tasks are complete.
 Run `specflow next --json` to see what's remaining.
 
 For each incomplete task, offer choices:
+
 1. **Complete it now** - If feasible, finish the task
 2. **Defer to backlog** - `specflow phase defer "T###: Description - reason"`
 3. **Block verification** - Cannot proceed until resolved
@@ -115,6 +118,7 @@ For each incomplete item, you MUST **actively verify** it:
 4. **Document failures** - If item cannot pass, note why and ask user
 
 **Checklist ID Prefixes:**
+
 - `V-###` - Verification checklist items
 - `I-###` - Implementation checklist items
 - `C-###` - Custom/other checklist items
@@ -134,43 +138,43 @@ Check implementation against memory documents in `.specify/memory/`:
 
 **CRITICAL** - Constitution violations block verification.
 
-| Check | How to Verify |
-|-------|---------------|
-| MUST requirements | Search code for each MUST item, confirm implementation |
-| Core principles | Review changes don't violate stated principles |
-| Documented deviations | Any deviation from constitution should be in plan.md |
+| Check                 | How to Verify                                          |
+| --------------------- | ------------------------------------------------------ |
+| MUST requirements     | Search code for each MUST item, confirm implementation |
+| Core principles       | Review changes don't violate stated principles         |
+| Documented deviations | Any deviation from constitution should be in plan.md   |
 
 ### 4b. Tech Stack Compliance (tech-stack.md)
 
-| Check | How to Verify |
-|-------|---------------|
-| Approved technologies | Any new dependencies match approved list |
-| Version constraints | Check package.json/lockfile for version compliance |
-| Undeclared dependencies | Search for imports not in approved stack |
+| Check                   | How to Verify                                      |
+| ----------------------- | -------------------------------------------------- |
+| Approved technologies   | Any new dependencies match approved list           |
+| Version constraints     | Check package.json/lockfile for version compliance |
+| Undeclared dependencies | Search for imports not in approved stack           |
 
 ### 4c. Coding Standards (coding-standards.md)
 
-| Check | How to Verify |
-|-------|---------------|
-| Naming conventions | Spot-check new files/functions for naming patterns |
-| Code organization | Verify files are in correct directories |
+| Check                  | How to Verify                                      |
+| ---------------------- | -------------------------------------------------- |
+| Naming conventions     | Spot-check new files/functions for naming patterns |
+| Code organization      | Verify files are in correct directories            |
 | TypeScript conventions | Check for any type violations (run `tsc --noEmit`) |
 
 ### 4d. Testing Strategy (testing-strategy.md)
 
-| Check | How to Verify |
-|-------|---------------|
+| Check         | How to Verify                            |
+| ------------- | ---------------------------------------- |
 | Test coverage | Run tests, verify critical paths covered |
-| Test patterns | Check tests follow project patterns |
-| Missing tests | Any new functionality without tests |
+| Test patterns | Check tests follow project patterns      |
+| Missing tests | Any new functionality without tests      |
 
 ### 4e. Security Checklist (security-checklist.md)
 
-| Check | How to Verify |
-|-------|---------------|
+| Check            | How to Verify                       |
+| ---------------- | ----------------------------------- |
 | Input validation | User inputs validated at boundaries |
-| Error handling | No sensitive info in error messages |
-| Authentication | Auth checks on sensitive operations |
+| Error handling   | No sensitive info in error messages |
+| Authentication   | Auth checks on sensitive operations |
 
 **Produce compliance summary:**
 
@@ -211,6 +215,7 @@ Has the user verified this phase works correctly?
 ```
 
 Options:
+
 - **Yes, verified** - Proceed to close
 - **No, needs work** - Stop verification, list what needs fixing
 - **Skip gate** - Close without user verification (document why)
@@ -240,6 +245,7 @@ specflow phase close --json
 ```
 
 This automatically:
+
 - Updates ROADMAP.md status to complete
 - Archives phase to HISTORY.md
 - Scans for deferred items and adds to BACKLOG.md
@@ -261,12 +267,12 @@ Display summary:
 
 ## Summary
 
-| Check | Status |
-|-------|--------|
-| Tasks | {completed}/{total} |
-| Checklists | PASS |
-| Memory Compliance | PASS |
-| User Gate | PASS / N/A |
+| Check             | Status              |
+| ----------------- | ------------------- |
+| Tasks             | {completed}/{total} |
+| Checklists        | PASS                |
+| Memory Compliance | PASS                |
+| User Gate         | PASS / N/A          |
 
 ## ROADMAP Updated
 
@@ -276,6 +282,10 @@ Phase {number} marked complete.
 
 Phase {next_number}: {next_name}
 Run `/flow.orchestrate` to continue.
+
+## How to Verify & Test
+
+Detailed instructions on how to verify this test as a user. Should include any instructions around how to start the dev server, add any environment variables, etc. Speak in plain english and be specific.
 
 ## Deferred Items
 
@@ -293,6 +303,7 @@ If verification cannot complete:
 3. Ask: "Would you like me to attempt fixes?"
 
 If user approves:
+
 - Complete incomplete tasks
 - Mark checklist items after verification
 - Re-run verification after fixes
