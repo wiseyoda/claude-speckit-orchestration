@@ -57,7 +57,7 @@ This allows inserting urgent work without renumbering existing phases.
 | 1050 | Workflow UI | ✅ Complete | **USER GATE**: Start from card/detail, see status badges |
 | 1051 | Questions & Notifications | ✅ Complete | **USER GATE**: Browser notification, question drawer |
 | 1052 | Session Viewer | ✅ Complete | **USER GATE**: View session JSONL, real-time streaming |
-| 1053 | Workflow-Session Unification | ⬜ Not Started | **USER GATE**: Session detected immediately on workflow start |
+| 1053 | Workflow-Session Unification | 🔄 In Progress | **USER GATE**: Session detected immediately on workflow start |
 | 1055  | Smart Batching & Orchestration    | ⬜ Not Started | **USER GATE**: Auto-batch tasks, state machine, auto-healing       |
 | 1060  | Stats & Operations                | ⬜ Not Started | **USER GATE**: Costs on cards, operations page, basic chart        |
 | 1070  | Cost Analytics                    | ⬜ Not Started | **USER GATE**: Advanced charts, projections, export                |
