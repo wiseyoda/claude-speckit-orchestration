@@ -119,7 +119,7 @@ Verifies:
 - Implementation complies with memory documents
 - User gate satisfied (if applicable)
 
-Then closes the phase via `specflow phase close`.
+Marks phase as verified and ready for merge. Does NOT close the phase - use `/flow.merge` for that.
 
 ### /flow.merge
 

@@ -20,6 +20,17 @@ import {
 import { join } from 'path';
 import { z } from 'zod';
 import { findRecentSessionFile } from '@/lib/project-hash';
+import {
+  spawnDetachedClaude,
+  pollForCompletion,
+  writePidFile,
+  cleanupPidFile,
+  isPidAlive,
+  killProcess,
+  readPidFile,
+} from './process-spawner';
+import { checkProcessHealth, getHealthStatusMessage } from './process-health';
+import { ensureReconciliation } from './process-reconciler';
 
 // =============================================================================
 // Zod Schemas
@@ -81,6 +92,7 @@ export const WorkflowExecutionSchema = z.object({
     'failed',
     'cancelled',
     'detached', // Dashboard lost track but session may still be running
+    'stale', // PID alive but session file hasn't updated (possibly stuck)
   ]),
   output: WorkflowOutputSchema.optional(),
   answers: z.record(z.string(), z.string()),
@@ -92,8 +104,10 @@ export const WorkflowExecutionSchema = z.object({
   startedAt: z.string(),
   updatedAt: z.string(),
   timeoutMs: z.number(),
-  pid: z.number().optional(),
+  pid: z.number().optional(), // Bash shell PID (legacy)
+  claudePid: z.number().optional(), // Actual claude CLI PID
   cancelledAt: z.string().optional(),
+  completedAt: z.string().optional(),
 });
 
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>;
@@ -136,6 +150,7 @@ export const WorkflowIndexEntrySchema = z.object({
     'failed',
     'cancelled',
     'detached', // Dashboard lost track but session may still be running
+    'stale', // PID alive but session file hasn't updated (possibly stuck)
   ]),
   startedAt: z.string(),
   updatedAt: z.string(),
@@ -242,8 +257,8 @@ function cleanupGlobalWorkflows(): void {
         const content = readFileSync(filePath, 'utf-8');
         const data = JSON.parse(content);
 
-        // Skip active workflows per FR-017
-        if (data.status === 'running' || data.status === 'waiting_for_input') {
+        // Skip active workflows per FR-017 (includes detached/stale - session may still be running)
+        if (['running', 'waiting_for_input', 'detached', 'stale'].includes(data.status)) {
           console.log(`[workflow-service] Skipping active workflow: ${file}`);
           continue;
         }
@@ -310,19 +325,27 @@ function updateWorkflowIndex(projectPath: string, execution: WorkflowExecution):
   const index = loadWorkflowIndex(projectPath);
   const existingIdx = index.sessions.findIndex(s => s.sessionId === execution.sessionId);
 
-  const entry: WorkflowIndexEntry = {
-    sessionId: execution.sessionId,
-    executionId: execution.id,
-    skill: execution.skill,
-    status: execution.status,
-    startedAt: execution.startedAt,
-    updatedAt: execution.updatedAt,
-    costUsd: execution.costUsd,
-  };
-
   if (existingIdx >= 0) {
-    index.sessions[existingIdx] = entry;
+    // Update existing entry - preserve original skill name, update status/timestamps/cost
+    const existing = index.sessions[existingIdx];
+    index.sessions[existingIdx] = {
+      ...existing,
+      executionId: execution.id,
+      status: execution.status,
+      updatedAt: execution.updatedAt,
+      costUsd: existing.costUsd + execution.costUsd,
+    };
   } else {
+    // New session - create full entry
+    const entry: WorkflowIndexEntry = {
+      sessionId: execution.sessionId,
+      executionId: execution.id,
+      skill: execution.skill,
+      status: execution.status,
+      startedAt: execution.startedAt,
+      updatedAt: execution.updatedAt,
+      costUsd: execution.costUsd,
+    };
     index.sessions.unshift(entry); // Add to front (newest first)
   }
 
@@ -487,6 +510,50 @@ function listExecutions(projectPath: string): WorkflowExecution[] {
 // =============================================================================
 
 /**
+ * Parse skill input which may include additional context
+ * Examples:
+ *   "/flow.merge" -> { skillName: "flow.merge", context: null }
+ *   "/flow.merge I verified everything" -> { skillName: "flow.merge", context: "I verified everything" }
+ *   "flow.orchestrate" -> { skillName: "flow.orchestrate", context: null }
+ *   "Just do the thing" -> { skillName: null, context: "Just do the thing" }
+ */
+function parseSkillInput(input: string): { skillName: string | null; context: string | null } {
+  const trimmed = input.trim();
+
+  // Check if it starts with a slash command
+  if (trimmed.startsWith('/')) {
+    // Find the command part (ends at space or end of string)
+    const spaceIndex = trimmed.indexOf(' ');
+    if (spaceIndex === -1) {
+      // Just the command, no context
+      return { skillName: trimmed.slice(1), context: null };
+    }
+    // Command + context
+    const skillName = trimmed.slice(1, spaceIndex);
+    const context = trimmed.slice(spaceIndex + 1).trim();
+    return { skillName, context: context || null };
+  }
+
+  // Check if it looks like a skill name without slash (e.g., "flow.orchestrate")
+  if (trimmed.startsWith('flow.') && !trimmed.includes(' ')) {
+    return { skillName: trimmed, context: null };
+  }
+
+  // Check if it starts with flow. followed by a space (e.g., "flow.orchestrate do this")
+  if (trimmed.startsWith('flow.')) {
+    const spaceIndex = trimmed.indexOf(' ');
+    if (spaceIndex !== -1) {
+      const skillName = trimmed.slice(0, spaceIndex);
+      const context = trimmed.slice(spaceIndex + 1).trim();
+      return { skillName, context: context || null };
+    }
+  }
+
+  // Plain text - treat as context only (will be used for session resume)
+  return { skillName: null, context: trimmed };
+}
+
+/**
  * Load skill file content from ~/.claude/commands/
  */
 function loadSkillContent(skill: string): string | null {
@@ -504,12 +571,19 @@ function loadSkillContent(skill: string): string | null {
 
 /**
  * Build the initial prompt for Claude CLI
+ * @param skillInput - Raw skill input which may include additional context (e.g., "/flow.merge I verified")
+ * @returns Object with prompt and parsed skill name, or null if skill not found
  */
-function buildInitialPrompt(skill: string): string | null {
-  const skillContent = loadSkillContent(skill);
+function buildInitialPrompt(skillInput: string): { prompt: string; skillName: string } | null {
+  const { skillName, context } = parseSkillInput(skillInput);
+
+  // If no skill name, can't build an initial prompt (this is a plain message)
+  if (!skillName) return null;
+
+  const skillContent = loadSkillContent(skillName);
   if (!skillContent) return null;
 
-  return `# CLI Mode Instructions
+  let prompt = `# CLI Mode Instructions
 
 You are running in non-interactive CLI mode. IMPORTANT:
 1. You CANNOT use AskUserQuestion tool - it is disabled
@@ -526,6 +600,19 @@ You are running in non-interactive CLI mode. IMPORTANT:
 Execute the following skill:
 
 ${skillContent}`;
+
+  // If user provided additional context, append it
+  if (context) {
+    prompt += `
+
+# User Context
+
+The user provided the following additional context for this workflow:
+
+${context}`;
+  }
+
+  return { prompt, skillName };
 }
 
 /**
@@ -757,6 +844,9 @@ class WorkflowService {
    * @param projectId - Optional project registry key for direct lookup
    */
   get(id: string, projectId?: string): WorkflowExecution | undefined {
+    // Ensure reconciliation has been run on startup
+    void ensureReconciliation();
+
     let projectPath: string | undefined;
     if (projectId) {
       const path = getProjectPath(projectId);
@@ -765,13 +855,40 @@ class WorkflowService {
     const execution = loadExecution(id, projectPath);
     if (!execution) return undefined;
 
-    // If workflow is running but no session ID yet, try to detect it from file system
+    // If workflow is active but no session ID yet, try to detect it from file system
     // This handles the case where CLI hasn't completed but session file exists
-    if (execution.status === 'running' && !execution.sessionId && projectPath) {
+    // Also applies to detached/stale workflows which may have lost tracking before session ID was captured
+    if (['running', 'detached', 'stale'].includes(execution.status) && !execution.sessionId && projectPath) {
       const detectedSessionId = findRecentSessionFile(projectPath, execution.startedAt);
       if (detectedSessionId) {
         execution.sessionId = detectedSessionId;
         execution.logs.push(`[DETECT] Session detected from file: ${detectedSessionId}`);
+        saveExecution(execution, projectPath);
+      }
+    }
+
+    // Runtime health checking for active workflows (Phase 4)
+    if (['running', 'waiting_for_input', 'stale'].includes(execution.status) && projectPath) {
+      const health = checkProcessHealth(execution, projectPath);
+
+      if (health.healthStatus === 'dead') {
+        execution.status = 'failed';
+        execution.error = 'Process terminated unexpectedly';
+        execution.updatedAt = new Date().toISOString();
+        execution.logs.push(`[HEALTH] ${getHealthStatusMessage(health)}`);
+        saveExecution(execution, projectPath);
+      } else if (health.healthStatus === 'stale' && execution.status !== 'stale') {
+        execution.status = 'stale';
+        execution.error = getHealthStatusMessage(health);
+        execution.updatedAt = new Date().toISOString();
+        execution.logs.push(`[HEALTH] ${getHealthStatusMessage(health)}`);
+        saveExecution(execution, projectPath);
+      } else if (health.healthStatus === 'running' && execution.status === 'stale') {
+        // Recovery: process was stale but now has activity
+        execution.status = 'running';
+        execution.error = undefined;
+        execution.updatedAt = new Date().toISOString();
+        execution.logs.push(`[HEALTH] Process recovered - session file updated`);
         saveExecution(execution, projectPath);
       }
     }
@@ -784,6 +901,9 @@ class WorkflowService {
    * @param projectId - Registry key for the project
    */
   list(projectId: string): WorkflowExecution[] {
+    // Ensure reconciliation has been run on startup
+    void ensureReconciliation();
+
     const projectPath = getProjectPath(projectId);
     if (!projectPath) {
       return [];
@@ -800,16 +920,18 @@ class WorkflowService {
       throw new Error(`Execution not found: ${id}`);
     }
 
-    // Can only cancel running or waiting workflows
-    if (!['running', 'waiting_for_input'].includes(execution.status)) {
+    // Can only cancel active workflows (running, waiting, detached, or stale)
+    if (!['running', 'waiting_for_input', 'detached', 'stale'].includes(execution.status)) {
       throw new Error(
         `Cannot cancel workflow in ${execution.status} state`
       );
     }
 
+    const projectPath = getProjectPath(execution.projectId);
     const now = new Date().toISOString();
 
     // Kill the process if running (FR-009)
+    // First try in-memory process reference
     const process = runningProcesses.get(id);
     if (process && process.pid) {
       try {
@@ -823,14 +945,94 @@ class WorkflowService {
       runningProcesses.delete(id);
     }
 
+    // Also try PID from pid file (for detached processes)
+    if (projectPath) {
+      const workflowDir = join(projectPath, '.specflow', 'workflows', id);
+      const pids = readPidFile(workflowDir);
+      if (pids) {
+        if (pids.claudePid && isPidAlive(pids.claudePid)) {
+          killProcess(pids.claudePid, false);
+          execution.logs.push(`[CANCEL] Claude PID ${pids.claudePid} terminated`);
+        }
+        if (pids.bashPid && isPidAlive(pids.bashPid)) {
+          killProcess(pids.bashPid, false);
+          execution.logs.push(`[CANCEL] Bash PID ${pids.bashPid} terminated`);
+        }
+        cleanupPidFile(workflowDir);
+      }
+    }
+
     execution.status = 'cancelled';
     execution.cancelledAt = now;
     execution.updatedAt = now;
     execution.pid = undefined;
+    execution.claudePid = undefined;
     execution.logs.push(`[CANCELLED] Workflow cancelled by user`);
     saveExecution(execution);
 
     return execution;
+  }
+
+  /**
+   * Cancel or complete a workflow by session ID (for when execution tracking is lost)
+   * Updates the workflow index to mark the session with the given status
+   *
+   * @param sessionId - Session ID to update
+   * @param projectId - Project ID
+   * @param finalStatus - Status to set: 'cancelled' (user cancelled) or 'completed' (graceful end)
+   */
+  cancelBySession(
+    sessionId: string,
+    projectId: string,
+    finalStatus: 'cancelled' | 'completed' = 'cancelled'
+  ): boolean {
+    const projectPath = getProjectPath(projectId);
+    if (!projectPath) {
+      return false;
+    }
+
+    const index = loadWorkflowIndex(projectPath);
+    const sessionIdx = index.sessions.findIndex(s => s.sessionId === sessionId);
+
+    if (sessionIdx < 0) {
+      return false;
+    }
+
+    const session = index.sessions[sessionIdx];
+
+    // Only update if in an active state (includes detached/stale - session may still be running)
+    if (!['running', 'waiting_for_input', 'detached', 'stale'].includes(session.status)) {
+      return false;
+    }
+
+    // Update the index entry
+    session.status = finalStatus;
+    session.updatedAt = new Date().toISOString();
+    saveWorkflowIndex(projectPath, index);
+
+    // Also try to update the metadata file if it exists
+    const workflowDir = getProjectWorkflowDir(projectPath);
+    const metadataPath = join(workflowDir, sessionId, 'metadata.json');
+    if (existsSync(metadataPath)) {
+      try {
+        const content = readFileSync(metadataPath, 'utf-8');
+        const execution = WorkflowExecutionSchema.parse(JSON.parse(content));
+        execution.status = finalStatus;
+        if (finalStatus === 'cancelled') {
+          execution.cancelledAt = new Date().toISOString();
+          execution.logs.push('[CANCELLED] Session cancelled by user (tracking recovered)');
+        } else {
+          execution.completedAt = new Date().toISOString();
+          execution.logs.push('[COMPLETED] Session completed (detected from messages)');
+        }
+        execution.updatedAt = new Date().toISOString();
+        writeFileSync(metadataPath, JSON.stringify(execution, null, 2));
+      } catch {
+        // Ignore errors updating metadata
+      }
+    }
+
+    return true;
   }
 
   /**
@@ -859,7 +1061,6 @@ class WorkflowService {
     // Ensure .gitignore has workflow session files excluded
     ensureGitignoreEntry(projectPath, '.specflow/workflows/');
 
-    const scriptFile = join(workflowDir, 'run-workflow.sh');
     const outputFile = join(workflowDir, 'workflow-output.json');
     const claudePath = '$HOME/.local/bin/claude';
 
@@ -897,10 +1098,12 @@ ${claudePath} -p --output-format json --resume "${effectiveSessionId}" --dangero
 `;
     } else {
       // Initial run (FR-005)
-      const prompt = buildInitialPrompt(execution.skill);
-      if (!prompt) {
+      const promptResult = buildInitialPrompt(execution.skill);
+      if (!promptResult) {
+        // No skill found - check if this is a plain message for an active session
+        // This case is handled at the API level by resuming the session
         execution.status = 'failed';
-        execution.error = `Could not load skill: ${execution.skill}`;
+        execution.error = `Could not load skill: ${execution.skill}. Use a slash command like /flow.orchestrate`;
         execution.updatedAt = new Date().toISOString();
         execution.logs.push(`[ERROR] Could not load skill: ${execution.skill}`);
         saveExecution(execution);
@@ -908,8 +1111,9 @@ ${claudePath} -p --output-format json --resume "${effectiveSessionId}" --dangero
       }
 
       const promptFile = join(workflowDir, 'prompt.txt');
-      writeFileSync(promptFile, prompt);
-      execution.logs.push(`[INFO] Initial prompt (${prompt.length} chars)`);
+      writeFileSync(promptFile, promptResult.prompt);
+      execution.logs.push(`[INFO] Skill: ${promptResult.skillName}`);
+      execution.logs.push(`[INFO] Initial prompt (${promptResult.prompt.length} chars)`);
 
       const schemaFile = join(workflowDir, 'schema.json');
       writeFileSync(schemaFile, JSON.stringify(WORKFLOW_JSON_SCHEMA));
@@ -920,151 +1124,132 @@ ${claudePath} -p --output-format json --dangerously-skip-permissions --disallowe
 `;
     }
 
-    writeFileSync(scriptFile, scriptContent, { mode: 0o755 });
-    execution.logs.push(`[INFO] Script: ${scriptFile}`);
-    execution.logs.push(`[EXEC] Running...`);
+    // Pass through full environment with specflow CLI in PATH
+    const homeDir = process.env.HOME || '/Users/ppatterson';
+    const env: Record<string, string> = {
+      HOME: homeDir,
+      PATH: `${homeDir}/.claude/specflow-system/bin:${homeDir}/.local/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`,
+    };
+
+    // Copy relevant environment variables
+    if (process.env.TERM) env.TERM = process.env.TERM;
+    if (process.env.SHELL) env.SHELL = process.env.SHELL;
+    if (process.env.USER) env.USER = process.env.USER;
+    if (process.env.LANG) env.LANG = process.env.LANG;
+
+    execution.logs.push(`[EXEC] Spawning detached process...`);
     saveExecution(execution);
 
-    return new Promise((resolve) => {
-      const cmd = `/bin/bash "${scriptFile}"`;
-
-      // Pass through full environment
-      const env = {
-        ...process.env,
-        HOME: process.env.HOME || '/Users/ppatterson',
-        PATH: `${process.env.HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin:${process.env.PATH}`,
-      };
-
-      const childProcess = exec(
-        cmd,
-        {
-          cwd: projectPath,
-          timeout: execution.timeoutMs,
-          shell: '/bin/bash',
-          env,
-        },
-        (error, _stdout, _stderr) => {
-          // Remove from running processes
-          runningProcesses.delete(id);
-
-          // Reload execution state (might have been updated)
-          const exec = loadExecution(id);
-          if (!exec) {
-            resolve();
-            return;
-          }
-
-          // Don't update if already cancelled
-          if (exec.status === 'cancelled') {
-            resolve();
-            return;
-          }
-
-          exec.updatedAt = new Date().toISOString();
-          exec.pid = undefined;
-
-          // Read output from file
-          let stdout = '';
-          try {
-            stdout = readFileSync(outputFile, 'utf-8');
-            exec.stdout = stdout;
-            exec.logs.push(`[OK] Output (${stdout.length} bytes)`);
-          } catch (e) {
-            exec.logs.push(`[ERROR] Could not read output: ${e}`);
-          }
-
-          const stderr = _stderr || '';
-          exec.stderr = stderr;
-          if (stderr) {
-            exec.logs.push(`[STDERR] ${stderr.slice(0, 500)}`);
-          }
-
-          // Check for timeout (FR-008)
-          // When timeout occurs, mark as "detached" - the session may still be running
-          // Users can reconnect via the session ID or session history
-          if (error && error.killed) {
-            exec.status = 'detached';
-            exec.error = `Dashboard tracking timeout (${exec.timeoutMs}ms) - session may still be running`;
-            exec.logs.push(`[DETACHED] ${exec.error}`);
-            exec.logs.push('[DETACHED] Check session history to reconnect');
-            saveExecution(exec);
-            resolve();
-            return;
-          }
-
-          if (error) {
-            exec.status = 'failed';
-            exec.error = String(error);
-            exec.logs.push(`[ERROR] ${error}`);
-            saveExecution(exec);
-            resolve();
-            return;
-          }
-
-          if (!stdout) {
-            exec.status = 'failed';
-            exec.error = 'No output received';
-            exec.logs.push(`[ERROR] No output`);
-            saveExecution(exec);
-            resolve();
-            return;
-          }
-
-          // Parse result (FR-006, FR-007)
-          try {
-            const result = JSON.parse(stdout) as ClaudeCliResult;
-            exec.sessionId = result.session_id;
-            exec.costUsd = exec.costUsd + (result.total_cost_usd || 0);
-
-            exec.logs.push(`[OK] Session: ${result.session_id}`);
-            exec.logs.push(`[OK] Cost: $${result.total_cost_usd?.toFixed(4)}`);
-
-            if (result.is_error) {
-              exec.status = 'failed';
-              exec.error = result.result || 'Unknown error';
-              exec.logs.push(`[ERROR] ${exec.error}`);
-            } else if (result.structured_output) {
-              exec.output = result.structured_output;
-
-              if (result.structured_output.status === 'needs_input') {
-                exec.status = 'waiting_for_input';
-                exec.logs.push(
-                  `[WAITING] ${result.structured_output.questions?.length || 0} questions`
-                );
-              } else if (result.structured_output.status === 'completed') {
-                exec.status = 'completed';
-                exec.logs.push('[COMPLETE] Workflow finished!');
-              } else if (result.structured_output.status === 'error') {
-                exec.status = 'failed';
-                exec.error = result.structured_output.message;
-                exec.logs.push(`[ERROR] ${exec.error}`);
-              }
-            } else {
-              // Test mode or no structured output
-              exec.status = 'completed';
-              exec.logs.push(`[COMPLETE] ${result.result?.slice(0, 100)}`);
-            }
-          } catch (parseError) {
-            exec.status = 'failed';
-            exec.error = `Parse error: ${stdout.slice(0, 200)}`;
-            exec.logs.push(`[PARSE ERROR] ${exec.error}`);
-          }
-
-          saveExecution(exec);
-          resolve();
-        }
-      );
-
-      // Track process for cancel (store PID)
-      if (childProcess.pid) {
-        runningProcesses.set(id, childProcess);
-        const exec = loadExecution(id);
-        if (exec) {
-          exec.pid = childProcess.pid;
-          saveExecution(exec);
-        }
-      }
+    // Spawn detached process (survives dashboard restart)
+    const spawnResult = spawnDetachedClaude({
+      cwd: projectPath,
+      workflowDir,
+      scriptContent,
+      env,
+      timeoutMs: execution.timeoutMs,
     });
+
+    // Update execution with PIDs
+    execution.pid = spawnResult.bashPid;
+    execution.logs.push(`[INFO] Bash PID: ${spawnResult.bashPid}`);
+    saveExecution(execution);
+
+    // Poll for completion in background
+    // This doesn't block the API response - process runs independently
+    this.pollAndUpdateExecution(id, projectPath, workflowDir, outputFile, execution.timeoutMs);
+  }
+
+  /**
+   * Poll for process completion and update execution state
+   */
+  private async pollAndUpdateExecution(
+    id: string,
+    projectPath: string,
+    workflowDir: string,
+    outputFile: string,
+    timeoutMs: number
+  ): Promise<void> {
+    const result = await pollForCompletion(workflowDir, timeoutMs);
+
+    // Reload execution state (might have been updated/cancelled)
+    const exec = loadExecution(id);
+    if (!exec) return;
+
+    // Don't update if already cancelled
+    if (exec.status === 'cancelled') return;
+
+    exec.updatedAt = new Date().toISOString();
+    exec.pid = undefined;
+    exec.claudePid = undefined;
+
+    if (result.timedOut) {
+      // Dashboard tracking timeout - process may still be running
+      exec.status = 'detached';
+      exec.error = `Dashboard tracking timeout (${timeoutMs}ms) - session may still be running`;
+      exec.logs.push(`[DETACHED] ${exec.error}`);
+      exec.logs.push('[DETACHED] Check session history to reconnect');
+      saveExecution(exec, projectPath);
+      return;
+    }
+
+    if (!result.completed || !result.output) {
+      exec.status = 'failed';
+      exec.error = 'Process terminated without output';
+      exec.logs.push(`[ERROR] No output received`);
+      saveExecution(exec, projectPath);
+      return;
+    }
+
+    // Read and process output
+    const stdout = result.output;
+    exec.stdout = stdout;
+    exec.logs.push(`[OK] Output (${stdout.length} bytes)`);
+
+    // Parse result (FR-006, FR-007)
+    try {
+      const cliResult = JSON.parse(stdout) as ClaudeCliResult;
+      // Only set sessionId if we don't have one (new session, not resume)
+      // When resuming, keep the original sessionId we intended to resume
+      if (!exec.sessionId) {
+        exec.sessionId = cliResult.session_id;
+      }
+      exec.costUsd = exec.costUsd + (cliResult.total_cost_usd || 0);
+
+      exec.logs.push(`[OK] Session: ${exec.sessionId}`);
+      exec.logs.push(`[OK] Cost: $${cliResult.total_cost_usd?.toFixed(4)}`);
+
+      if (cliResult.is_error) {
+        exec.status = 'failed';
+        exec.error = cliResult.result || 'Unknown error';
+        exec.logs.push(`[ERROR] ${exec.error}`);
+      } else if (cliResult.structured_output) {
+        exec.output = cliResult.structured_output;
+
+        if (cliResult.structured_output.status === 'needs_input') {
+          exec.status = 'waiting_for_input';
+          exec.logs.push(
+            `[WAITING] ${cliResult.structured_output.questions?.length || 0} questions`
+          );
+        } else if (cliResult.structured_output.status === 'completed') {
+          exec.status = 'completed';
+          exec.logs.push('[COMPLETE] Workflow finished!');
+        } else if (cliResult.structured_output.status === 'error') {
+          exec.status = 'failed';
+          exec.error = cliResult.structured_output.message;
+          exec.logs.push(`[ERROR] ${exec.error}`);
+        }
+      } else {
+        // Test mode or no structured output
+        exec.status = 'completed';
+        exec.logs.push(`[COMPLETE] ${cliResult.result?.slice(0, 100)}`);
+      }
+    } catch (parseError) {
+      exec.status = 'failed';
+      exec.error = `Parse error: ${stdout.slice(0, 200)}`;
+      exec.logs.push(`[PARSE ERROR] ${exec.error}`);
+    }
+
+    saveExecution(exec, projectPath);
   }
 }
 

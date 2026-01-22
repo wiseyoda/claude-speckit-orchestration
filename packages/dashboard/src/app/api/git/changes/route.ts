@@ -42,11 +42,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get all changes: working directory (unstaged + staged)
+    // Get all changes: working directory (unstaged + staged) + untracked files
     // This shows what would be committed if you did `git add . && git commit`
-    const [unstagedResult, stagedResult] = await Promise.all([
+    const [unstagedResult, stagedResult, untrackedResult, deletedResult] = await Promise.all([
       execAsync('git diff --numstat 2>/dev/null', { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }).catch(() => ({ stdout: '' })),
       execAsync('git diff --numstat --staged 2>/dev/null', { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }).catch(() => ({ stdout: '' })),
+      // Get untracked files (newly created, not yet staged)
+      execAsync('git ls-files --others --exclude-standard 2>/dev/null', { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }).catch(() => ({ stdout: '' })),
+      // Get deleted files that are staged
+      execAsync('git diff --name-only --staged --diff-filter=D 2>/dev/null', { cwd: projectPath, maxBuffer: 10 * 1024 * 1024 }).catch(() => ({ stdout: '' })),
     ]);
 
     // Combine outputs, removing duplicates by tracking seen files
@@ -123,6 +127,57 @@ export async function GET(request: NextRequest) {
         totalAdditions += additions;
         totalDeletions += deletions;
       }
+    }
+
+    // Add untracked (new) files
+    const untrackedFiles = untrackedResult.stdout.trim().split('\n').filter(Boolean);
+    for (const filePath of untrackedFiles) {
+      if (seenFiles.has(filePath)) continue;
+      seenFiles.add(filePath);
+
+      // Count lines in new file
+      let lineCount = 0;
+      try {
+        const { stdout: wcOut } = await execAsync(`wc -l < "${filePath}" 2>/dev/null`, { cwd: projectPath });
+        lineCount = parseInt(wcOut.trim(), 10) || 0;
+      } catch {
+        // Ignore errors (binary files, etc.)
+      }
+
+      const lastSlash = filePath.lastIndexOf('/');
+      const filename = lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath;
+      const directory = lastSlash >= 0 ? filePath.slice(0, lastSlash) : '';
+
+      files.push({
+        path: filePath,
+        filename,
+        directory,
+        additions: lineCount,
+        deletions: 0,
+        status: 'added',
+      });
+
+      totalAdditions += lineCount;
+    }
+
+    // Add deleted files that weren't caught above
+    const deletedFiles = deletedResult.stdout.trim().split('\n').filter(Boolean);
+    for (const filePath of deletedFiles) {
+      if (seenFiles.has(filePath)) continue;
+      seenFiles.add(filePath);
+
+      const lastSlash = filePath.lastIndexOf('/');
+      const filename = lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath;
+      const directory = lastSlash >= 0 ? filePath.slice(0, lastSlash) : '';
+
+      files.push({
+        path: filePath,
+        filename,
+        directory,
+        additions: 0,
+        deletions: 0, // We don't know how many lines were deleted
+        status: 'deleted',
+      });
     }
 
     // Sort by directory then filename for logical grouping

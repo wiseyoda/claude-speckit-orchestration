@@ -99,7 +99,7 @@ Response structure:
 | `run_verify` | Go to Section 5 (VERIFY) |
 | `ready_to_merge` | Go to Section 6 (Phase Transition) |
 | `awaiting_user_gate` | Display USER GATE prompt, wait for approval |
-| `archive_phase` | Run `specflow phase close`, then start next phase |
+| `verified` | Go to Section 6 (Phase Transition) - ready for `/flow.merge` |
 
 **Handle arguments:**
 

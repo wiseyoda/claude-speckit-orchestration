@@ -1,6 +1,22 @@
 'use client';
 
 /**
+ * @deprecated This hook will be removed in a future version.
+ *
+ * Migration guide:
+ * - Session history is now pushed via SSE workflow events
+ * - Use useProjectData() from '@/hooks/use-project-data' instead
+ *
+ * OLD:
+ *   const { sessions } = useSessionHistory(projectPath);
+ *
+ * NEW:
+ *   const { sessions } = useProjectData(projectId);
+ *
+ * The sessions array contains WorkflowIndexEntry[] with the same data,
+ * but updates in real-time via SSE instead of polling.
+ *
+ * ---
  * Hook for fetching session history for a project.
  *
  * Features:

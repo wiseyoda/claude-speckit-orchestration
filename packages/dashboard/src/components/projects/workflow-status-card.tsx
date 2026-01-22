@@ -84,6 +84,10 @@ function getStatusMessage(status: WorkflowExecution['status']): string {
       return 'Workflow was cancelled';
     case 'detached':
       return 'Session may still be running';
+    case 'stale':
+      return 'Session may be stuck';
+    default:
+      return 'Unknown status';
   }
 }
 

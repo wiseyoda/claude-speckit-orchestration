@@ -10,10 +10,11 @@
  * - Failed: red X
  * - Cancelled: gray slash
  * - Detached: amber warning (dashboard lost track, session may be running)
+ * - Stale: orange clock (PID alive but no activity in 5+ minutes)
  */
 
 import * as React from 'react';
-import { Loader2, CheckCircle, XCircle, HelpCircle, Slash, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, HelpCircle, Slash, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WorkflowExecution } from '@/lib/services/workflow-service';
 
@@ -78,6 +79,12 @@ const STATUS_CONFIG: Record<
     label: 'Detached',
     bgColor: 'bg-amber-100 dark:bg-amber-900/30',
     textColor: 'text-amber-700 dark:text-amber-400',
+  },
+  stale: {
+    icon: Clock,
+    label: 'Possibly Stuck',
+    bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+    textColor: 'text-orange-700 dark:text-orange-400',
   },
 };
 

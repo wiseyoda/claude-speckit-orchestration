@@ -113,9 +113,10 @@ function getStatusDisplay(status: WorkflowIndexEntry['status']) {
 
 /**
  * Check if session is currently active
+ * Includes 'detached' - session may still be running even if dashboard lost track
  */
 function isSessionActive(status: WorkflowIndexEntry['status']): boolean {
-  return status === 'running' || status === 'waiting_for_input';
+  return status === 'running' || status === 'waiting_for_input' || status === 'detached';
 }
 
 /**

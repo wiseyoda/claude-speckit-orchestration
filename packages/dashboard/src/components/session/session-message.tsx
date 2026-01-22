@@ -1,11 +1,18 @@
 'use client'
 
+import { useState, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import type { SessionMessage } from '@/lib/session-parser'
+import type { SessionMessage, ToolCallInfo } from '@/lib/session-parser'
+import { CommandChip } from './command-chip'
+import { FileChipGroup } from './file-chip'
+import { FileViewerModal } from './file-viewer-modal'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 
 interface SessionMessageDisplayProps {
   message: SessionMessage
   className?: string
+  /** Callback when a file chip is clicked */
+  onFileClick?: (path: string) => void
 }
 
 type MessageType = 'reasoning' | 'action' | 'info'
@@ -70,6 +77,23 @@ function extractAgentName(content: string): string | null {
   return null
 }
 
+/**
+ * Check if a user message is an answer to Claude's questions and extract the answer(s)
+ */
+function extractUserAnswers(content: string): string[] | null {
+  // Pattern 1: "# User Answers\nThe user has answered the questions:\n- 0: Answer"
+  if (content.startsWith('# User Answers')) {
+    const answers: string[] = []
+    const answerPattern = /- \d+:\s*(.+?)(?:\n|$)/g
+    let match
+    while ((match = answerPattern.exec(content)) !== null) {
+      answers.push(match[1].trim())
+    }
+    if (answers.length > 0) return answers
+  }
+  return null
+}
+
 const typeConfig = {
   reasoning: {
     badge: 'reasoning',
@@ -85,18 +109,125 @@ const typeConfig = {
   },
 }
 
+/**
+ * Convert tool calls to file chip format
+ */
+function toolCallsToFileChips(
+  toolCalls: ToolCallInfo[] | undefined
+): Array<{ path: string; operation: 'read' | 'write' | 'edit' | 'search' }> {
+  if (!toolCalls) return []
+
+  const chips: Array<{ path: string; operation: 'read' | 'write' | 'edit' | 'search' }> = []
+
+  for (const tc of toolCalls) {
+    // Skip non-file operations
+    if (tc.operation === 'execute' || tc.operation === 'todo') continue
+    // Skip if no files
+    if (!tc.files || tc.files.length === 0) continue
+
+    for (const file of tc.files) {
+      chips.push({
+        path: file,
+        operation: tc.operation as 'read' | 'write' | 'edit' | 'search',
+      })
+    }
+  }
+
+  return chips
+}
+
 export function SessionMessageDisplay({
   message,
   className,
+  onFileClick,
 }: SessionMessageDisplayProps) {
   const isUser = message.role === 'user'
+  const isSystem = message.role === 'system'
   const timeStr = formatTimestamp(message.timestamp)
-  const messageType = isUser ? 'info' : getMessageType(message.content)
+  const messageType = isUser || isSystem ? 'info' : getMessageType(message.content)
   const config = typeConfig[messageType]
-  const agentName = isUser ? null : extractAgentName(message.content)
+  const agentName = isUser || isSystem ? null : extractAgentName(message.content)
+
+  // File viewer modal state
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+
+  const handleFileClick = useCallback((path: string) => {
+    if (onFileClick) {
+      onFileClick(path)
+    } else {
+      setSelectedFile(path)
+    }
+  }, [onFileClick])
+
+  // Convert tool calls to file chips
+  const fileChips = toolCallsToFileChips(message.toolCalls)
+
+  // Session end indicator
+  if (isSystem && message.isSessionEnd) {
+    return (
+      <div className={cn('flex items-center justify-center py-4', className)}>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-200 border border-surface-300">
+          <div className="w-2 h-2 rounded-full bg-zinc-500" />
+          <span className="text-sm text-zinc-400">Session Ended</span>
+          {timeStr && <span className="text-xs text-zinc-500">{timeStr}</span>}
+        </div>
+      </div>
+    )
+  }
 
   if (isUser) {
-    // User messages styled with accent highlight
+    // Check if this is a command injection
+    if (message.isCommandInjection && message.commandName) {
+      return (
+        <div
+          className={cn(
+            'relative pl-6 border-l-2 border-accent/50',
+            className
+          )}
+        >
+          <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent shadow-lg shadow-accent/50" />
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-accent font-bold">You</span>
+            {timeStr && <span className="text-xs text-zinc-500">{timeStr}</span>}
+          </div>
+          <CommandChip
+            commandName={message.commandName}
+            fullContent={message.content}
+          />
+        </div>
+      )
+    }
+
+    // Check if this is an answer to Claude's questions
+    const userAnswers = extractUserAnswers(message.content)
+    if (userAnswers) {
+      return (
+        <div
+          className={cn(
+            'relative pl-6 border-l-2 border-accent/50',
+            className
+          )}
+        >
+          <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent shadow-lg shadow-accent/50" />
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-accent font-bold">You</span>
+            {timeStr && <span className="text-xs text-zinc-500">{timeStr}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {userAnswers.map((answer, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-center px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20 text-accent text-sm"
+              >
+                {answer}
+              </span>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Regular user message
     return (
       <div
         className={cn(
@@ -117,35 +248,56 @@ export function SessionMessageDisplay({
   }
 
   return (
-    <div
-      className={cn(
-        'relative pl-6 border-l-2 border-surface-300 hover:border-accent/50 transition-colors',
-        className
-      )}
-    >
-      <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent shadow-lg shadow-accent/50" />
-
-      {/* Header: Agent, type badge */}
-      <div className="flex items-center gap-3 mb-2">
-        {agentName && (
-          <span className="text-accent font-bold">@{agentName}</span>
+    <>
+      <div
+        className={cn(
+          'relative pl-6 border-l-2 border-surface-300 hover:border-accent/50 transition-colors',
+          className
         )}
-        {config.badge && (
-          <span
-            className={cn(
-              'px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider',
-              config.badgeClass
-            )}
-          >
-            {config.badge}
-          </span>
+      >
+        <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-accent shadow-lg shadow-accent/50" />
+
+        {/* Header: Agent, type badge */}
+        <div className="flex items-center gap-3 mb-2">
+          {agentName && (
+            <span className="text-accent font-bold">@{agentName}</span>
+          )}
+          {config.badge && (
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider',
+                config.badgeClass
+              )}
+            >
+              {config.badge}
+            </span>
+          )}
+        </div>
+
+        {/* Content - render as markdown */}
+        <div className="text-zinc-300 leading-relaxed">
+          <MarkdownContent content={message.content} className="prose-p:mb-2 prose-p:last:mb-0" />
+        </div>
+
+        {/* File chips for tool calls */}
+        {fileChips.length > 0 && (
+          <div className="mt-3">
+            <FileChipGroup
+              files={fileChips}
+              onFileClick={handleFileClick}
+            />
+          </div>
         )}
       </div>
 
-      {/* Content */}
-      <p className="text-zinc-300 leading-relaxed">
-        {message.content}
-      </p>
-    </div>
+      {/* File viewer modal (only if not using external handler) */}
+      {!onFileClick && (
+        <FileViewerModal
+          open={!!selectedFile}
+          onOpenChange={(open) => !open && setSelectedFile(null)}
+          filePath={selectedFile}
+        />
+      )}
+    </>
   )
 }

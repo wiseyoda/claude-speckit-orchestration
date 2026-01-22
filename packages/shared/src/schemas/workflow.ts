@@ -101,3 +101,57 @@ export const WorkflowExecutionSchema = z.object({
 });
 
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>;
+
+/**
+ * Dashboard workflow execution status (matches workflow-service.ts)
+ */
+export const DashboardWorkflowStatusSchema = z.enum([
+  'running',
+  'waiting_for_input',
+  'completed',
+  'failed',
+  'cancelled',
+  'detached',
+  'stale',
+]);
+
+export type DashboardWorkflowStatus = z.infer<typeof DashboardWorkflowStatusSchema>;
+
+/**
+ * Workflow index entry for quick session listing
+ * Stored at {project}/.specflow/workflows/index.json
+ */
+export const WorkflowIndexEntrySchema = z.object({
+  sessionId: z.string(),
+  executionId: z.string(),
+  skill: z.string(),
+  status: DashboardWorkflowStatusSchema,
+  startedAt: z.string(),
+  updatedAt: z.string(),
+  costUsd: z.number(),
+});
+
+export type WorkflowIndexEntry = z.infer<typeof WorkflowIndexEntrySchema>;
+
+/**
+ * Workflow index for a project
+ * Provides quick lookup of all sessions without loading full metadata
+ */
+export const WorkflowIndexSchema = z.object({
+  sessions: z.array(WorkflowIndexEntrySchema),
+});
+
+export type WorkflowIndex = z.infer<typeof WorkflowIndexSchema>;
+
+/**
+ * Workflow data sent via SSE events
+ * Contains current execution and session index
+ */
+export const WorkflowDataSchema = z.object({
+  /** Current active execution or null */
+  currentExecution: WorkflowIndexEntrySchema.nullable(),
+  /** All sessions from index.json */
+  sessions: z.array(WorkflowIndexEntrySchema),
+});
+
+export type WorkflowData = z.infer<typeof WorkflowDataSchema>;

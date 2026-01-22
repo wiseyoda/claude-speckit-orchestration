@@ -1,6 +1,23 @@
 'use client';
 
 /**
+ * @deprecated This hook will be removed in a future version.
+ *
+ * Migration guide:
+ * - For workflow data: use useProjectData() from '@/hooks/use-project-data'
+ * - For actions: use useWorkflowActions() from '@/hooks/use-workflow-actions'
+ *
+ * The new architecture uses SSE-pushed workflow events instead of polling,
+ * providing real-time updates with less overhead.
+ *
+ * OLD:
+ *   const { execution, start, cancel, submitAnswers } = useWorkflowExecution(projectId);
+ *
+ * NEW:
+ *   const { workflow, currentExecution, isWorkflowActive } = useProjectData(projectId);
+ *   const { start, cancel, submitAnswers } = useWorkflowActions(projectId);
+ *
+ * ---
  * Hook for managing workflow execution state with polling
  *
  * Features:
@@ -22,10 +39,10 @@ const POLL_INTERVAL_MS = 3000; // 3 seconds per PDR
 
 type WorkflowStatus = WorkflowExecution['status'];
 
-// Detached is NOT terminal - the session may still be running
+// Detached and stale are NOT terminal - the session may still be running
 const TERMINAL_STATES: WorkflowStatus[] = ['completed', 'failed', 'cancelled'];
-// Detached counts as potentially active - continue polling to see if session updates
-const ACTIVE_STATES: WorkflowStatus[] = ['running', 'waiting_for_input', 'detached'];
+// Detached and stale count as potentially active - continue polling to see if session updates
+const ACTIVE_STATES: WorkflowStatus[] = ['running', 'waiting_for_input', 'detached', 'stale'];
 
 interface StartWorkflowOptions {
   /** Optional session ID to resume an existing session */
@@ -133,17 +150,28 @@ async function startWorkflow(
 
 /**
  * Cancel a workflow
+ * @param id - Execution ID (optional if sessionId and projectId provided)
+ * @param sessionId - Session ID for fallback cancellation
+ * @param projectId - Project ID for fallback cancellation
  */
-async function cancelWorkflow(id: string): Promise<WorkflowExecution> {
-  const res = await fetch(`/api/workflow/cancel?id=${encodeURIComponent(id)}`, {
+async function cancelWorkflow(
+  id?: string,
+  sessionId?: string,
+  projectId?: string
+): Promise<{ execution?: WorkflowExecution; cancelled?: boolean }> {
+  const params = new URLSearchParams();
+  if (id) params.set('id', id);
+  if (sessionId) params.set('sessionId', sessionId);
+  if (projectId) params.set('projectId', projectId);
+
+  const res = await fetch(`/api/workflow/cancel?${params}`, {
     method: 'POST',
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `Failed to cancel workflow: ${res.status}`);
   }
-  const data = await res.json();
-  return data.execution as WorkflowExecution;
+  return await res.json();
 }
 
 /**
@@ -274,11 +302,13 @@ export function useWorkflowExecution(
       // Validate: check if there's already an active workflow
       // Only running/waiting_for_input states block new workflows
       // cancelled/completed/failed states allow restart
+      // detached state allows restart (dashboard lost track, user explicitly wants new workflow)
       // Exception: when resuming a session, we allow starting even if active
       // (the new workflow will link to the same session)
+      const blockingStates: WorkflowStatus[] = ['running', 'waiting_for_input'];
       if (
         execution &&
-        ACTIVE_STATES.includes(execution.status) &&
+        blockingStates.includes(execution.status) &&
         !options?.resumeSessionId
       ) {
         const err = new Error('A workflow is already running on this project');
@@ -308,19 +338,46 @@ export function useWorkflowExecution(
 
   // Cancel the current workflow
   const cancel = useCallback(async () => {
-    if (!executionIdRef.current) {
-      throw new Error('No workflow to cancel');
+    // Get session ID before clearing state (needed for fallback cancel)
+    const sessionId = execution?.sessionId;
+
+    if (!executionIdRef.current && !sessionId) {
+      // No execution or session to cancel - just clear local state
+      setExecution(null);
+      clearPolling();
+      return;
     }
+
     try {
       setError(null);
-      const exec = await cancelWorkflow(executionIdRef.current);
-      setExecution(exec);
+      // Pass sessionId and projectId for fallback if execution tracking is lost
+      const result = await cancelWorkflow(
+        executionIdRef.current || undefined,
+        sessionId,
+        projectId
+      );
+      if (result.execution) {
+        setExecution(result.execution);
+      } else {
+        // Cancelled by session ID - clear local state
+        setExecution(null);
+        executionIdRef.current = null;
+      }
       clearPolling();
     } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+      // If execution/session not found, it's already gone - just clear local state
+      if (errorMessage.includes('not found')) {
+        setExecution(null);
+        executionIdRef.current = null;
+        clearPolling();
+        setError(null);
+        return;
+      }
       setError(e instanceof Error ? e : new Error('Unknown error'));
       throw e;
     }
-  }, [clearPolling]);
+  }, [clearPolling, execution, projectId]);
 
   // Submit answers
   const submitAnswers = useCallback(
@@ -335,11 +392,21 @@ export function useWorkflowExecution(
         // Resume polling
         startPolling();
       } catch (e) {
-        setError(e instanceof Error ? e : new Error('Unknown error'));
+        const errorMessage = e instanceof Error ? e.message : 'Unknown error';
+        // If execution not found, the workflow timed out or was cleaned up
+        // Clear the stale state so user can start fresh
+        if (errorMessage.includes('not found') || errorMessage.includes('Execution not found')) {
+          setExecution(null);
+          executionIdRef.current = null;
+          clearPolling();
+          setError(new Error('Workflow session expired. Please start a new workflow.'));
+        } else {
+          setError(e instanceof Error ? e : new Error('Unknown error'));
+        }
         throw e;
       }
     },
-    [startPolling]
+    [startPolling, clearPolling]
   );
 
   // Initial fetch on mount

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { CommandOutputModal } from '@/components/projects/command-output-modal';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   type ActionDefinition,
   type ProjectStatus,
@@ -124,8 +125,7 @@ export function ActionButton({
     }
   };
 
-  const buttonVariant = action.variant === 'destructive' ? 'destructive' :
-                        action.variant === 'outline' ? 'outline' : 'default';
+  const buttonVariant = action.variant === 'destructive' ? 'destructive' : 'ghost';
 
   return (
     <>
@@ -134,13 +134,10 @@ export function ActionButton({
         size="sm"
         onClick={handleClick}
         disabled={isExecuting}
-        className={className}
+        className={cn('text-zinc-500 hover:text-zinc-300', className)}
       >
         {isExecuting ? (
-          <>
-            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            Running...
-          </>
+          <Loader2 className="h-3 w-3 animate-spin" />
         ) : (
           action.label
         )}

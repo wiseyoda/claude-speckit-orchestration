@@ -73,7 +73,7 @@ export function ProjectDetailHeader({
     workflowExecution?.updatedAt
   )
   const showWorkflowBadge = workflowStatus && !isHidden
-  const hasActiveWorkflow = workflowStatus === 'running' || workflowStatus === 'waiting_for_input'
+  const hasActiveWorkflow = workflowStatus === 'running' || workflowStatus === 'waiting_for_input' || workflowStatus === 'detached'
 
   // Question badge for waiting workflows
   const pendingQuestions = workflowExecution?.output?.questions ?? []

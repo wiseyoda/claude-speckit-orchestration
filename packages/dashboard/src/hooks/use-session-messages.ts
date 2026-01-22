@@ -1,6 +1,28 @@
 'use client';
 
 /**
+ * @deprecated This hook will be replaced by useSessionContent.
+ *
+ * Migration guide:
+ * - Use useSessionContent() from '@/hooks/use-session-content' instead
+ * - Session polling is now centralized in session-polling-manager.ts
+ *
+ * OLD:
+ *   const { messages, filesModified, currentTodos } = useSessionMessages(
+ *     projectPath, sessionId, isActive
+ *   );
+ *
+ * NEW:
+ *   const content = useSessionContent(sessionId, projectPath);
+ *   // content.messages, content.filesModified, content.currentTodos
+ *
+ * For extended data:
+ *   import { useSessionContentExtended } from '@/hooks/use-session-content';
+ *   const { messages, filesModified, currentTodos, isLoading } = useSessionContentExtended(
+ *     sessionId, projectPath
+ *   );
+ *
+ * ---
  * Hook for fetching and polling Claude session messages.
  *
  * Features:
@@ -8,11 +30,11 @@
  * - Polls every 3 seconds when session is active
  * - Auto-discovers active session when sessionId not provided
  * - Auto-stops polling on error or when session completes
- * - Returns messages, metrics, and loading/error states
+ * - Returns messages, metrics, tool calls, todos, and loading/error states
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SessionMessage } from '@/lib/session-parser';
+import type { SessionMessage, ToolCallInfo, TodoItem } from '@/lib/session-parser';
 
 const POLL_INTERVAL_MS = 3000; // 3 seconds to match workflow polling
 const DEFAULT_TAIL_LIMIT = 100;
@@ -22,6 +44,8 @@ export interface SessionContent {
   filesModified: number;
   elapsed: number;
   sessionId: string;
+  toolCalls?: ToolCallInfo[];
+  currentTodos?: TodoItem[];
 }
 
 interface UseSessionMessagesResult {
@@ -39,6 +63,10 @@ interface UseSessionMessagesResult {
   error: string | null;
   /** Discovered session ID (may differ from prop if auto-discovered) */
   activeSessionId: string | null;
+  /** All tool calls extracted from the session */
+  toolCalls: ToolCallInfo[];
+  /** Current todo items from latest TodoWrite call */
+  currentTodos: TodoItem[];
   /** Manually refresh session content */
   refresh: () => Promise<void>;
   /** Stop polling */
@@ -106,6 +134,8 @@ export function useSessionMessages(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [toolCalls, setToolCalls] = useState<ToolCallInfo[]>([]);
+  const [currentTodos, setCurrentTodos] = useState<TodoItem[]>([]);
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
@@ -146,6 +176,8 @@ export function useSessionMessages(
       setFilesModified(content.filesModified);
       setElapsed(content.elapsed);
       setActiveSessionId(content.sessionId);
+      setToolCalls(content.toolCalls ?? []);
+      setCurrentTodos(content.currentTodos ?? []);
       setError(null);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Unknown error';
@@ -178,6 +210,8 @@ export function useSessionMessages(
       setElapsed(0);
       setError(null);
       setActiveSessionId(null);
+      setToolCalls([]);
+      setCurrentTodos([]);
       hasLoadedRef.current = false;
       lastSessionIdRef.current = null;
       stopPolling();
@@ -226,6 +260,8 @@ export function useSessionMessages(
         setFilesModified(content.filesModified);
         setElapsed(content.elapsed);
         setActiveSessionId(content.sessionId);
+        setToolCalls(content.toolCalls ?? []);
+        setCurrentTodos(content.currentTodos ?? []);
         setIsLoading(false);
         hasLoadedRef.current = true;
 
@@ -271,6 +307,8 @@ export function useSessionMessages(
     isPolling: isPollingRef.current,
     error,
     activeSessionId: sessionId || activeSessionId,
+    toolCalls,
+    currentTodos,
     refresh,
     stopPolling,
   };

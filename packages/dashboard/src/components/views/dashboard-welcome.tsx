@@ -3,11 +3,17 @@
 import { cn } from '@/lib/utils'
 import { Layers, GitMerge, MessageSquareCode, BookOpen, ArrowRight } from 'lucide-react'
 import type { OrchestrationState, TasksData } from '@specflow/shared'
+import type { PhaseDetail } from '@/hooks/use-phase-detail'
+import { PhaseCard } from '@/components/dashboard/phase-card'
 
 interface DashboardWelcomeProps {
   state: OrchestrationState | null | undefined
   tasksData: TasksData | null | undefined
+  focusPhase?: PhaseDetail | null
+  focusPhaseLoading?: boolean
+  isFocusPhaseActive?: boolean
   onStartWorkflow?: (skill: string) => void
+  onViewHistory?: (phaseNumber?: string) => void
   isStartingWorkflow?: boolean
   className?: string
 }
@@ -15,7 +21,11 @@ interface DashboardWelcomeProps {
 export function DashboardWelcome({
   state,
   tasksData,
+  focusPhase,
+  focusPhaseLoading = false,
+  isFocusPhaseActive = false,
   onStartWorkflow,
+  onViewHistory,
   isStartingWorkflow = false,
   className,
 }: DashboardWelcomeProps) {
@@ -68,6 +78,16 @@ export function DashboardWelcome({
 
         {/* Quick actions */}
         <div className="grid grid-cols-1 gap-4">
+          {/* Phase Card - shows current or next phase */}
+          {(focusPhase || focusPhaseLoading) && (
+            <PhaseCard
+              phase={focusPhase ?? null}
+              isLoading={focusPhaseLoading}
+              isActive={isFocusPhaseActive}
+              onViewHistory={() => onViewHistory?.(focusPhase?.number)}
+            />
+          )}
+
           {/* Primary action */}
           <button
             onClick={() => onStartWorkflow?.('flow.orchestrate')}
@@ -95,42 +115,39 @@ export function DashboardWelcome({
             </div>
           </button>
 
-          {/* Secondary actions */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Secondary actions - compact horizontal layout */}
+          <div className="flex items-center justify-center gap-2">
             <button
               onClick={() => onStartWorkflow?.('flow.merge')}
               disabled={isStartingWorkflow}
-              className="group p-4 rounded-xl bg-surface-200/50 border border-surface-300/50 hover:border-purple-500/30 transition-all text-left disabled:opacity-50"
+              className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-200/50 border border-surface-300/50 hover:border-purple-500/30 hover:bg-surface-200 transition-all disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition-transform">
-                <GitMerge className="w-5 h-5" />
+              <div className="w-7 h-7 rounded-md bg-purple-500/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
+                <GitMerge className="w-4 h-4" />
               </div>
-              <h4 className="text-sm font-medium text-white">Merge</h4>
-              <p className="text-xs text-zinc-500 mt-1">Close & merge</p>
+              <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Merge</span>
             </button>
 
             <button
               onClick={() => onStartWorkflow?.('flow.review')}
               disabled={isStartingWorkflow}
-              className="group p-4 rounded-xl bg-surface-200/50 border border-surface-300/50 hover:border-pink-500/30 transition-all text-left disabled:opacity-50"
+              className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-200/50 border border-surface-300/50 hover:border-pink-500/30 hover:bg-surface-200 transition-all disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 mb-3 group-hover:scale-110 transition-transform">
-                <MessageSquareCode className="w-5 h-5" />
+              <div className="w-7 h-7 rounded-md bg-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
+                <MessageSquareCode className="w-4 h-4" />
               </div>
-              <h4 className="text-sm font-medium text-white">Review</h4>
-              <p className="text-xs text-zinc-500 mt-1">Code review</p>
+              <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Review</span>
             </button>
 
             <button
               onClick={() => onStartWorkflow?.('flow.memory')}
               disabled={isStartingWorkflow}
-              className="group p-4 rounded-xl bg-surface-200/50 border border-surface-300/50 hover:border-amber-500/30 transition-all text-left disabled:opacity-50"
+              className="group flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-200/50 border border-surface-300/50 hover:border-amber-500/30 hover:bg-surface-200 transition-all disabled:opacity-50"
             >
-              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-110 transition-transform">
-                <BookOpen className="w-5 h-5" />
+              <div className="w-7 h-7 rounded-md bg-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                <BookOpen className="w-4 h-4" />
               </div>
-              <h4 className="text-sm font-medium text-white">Memory</h4>
-              <p className="text-xs text-zinc-500 mt-1">Update docs</p>
+              <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">Memory</span>
             </button>
           </div>
         </div>

@@ -109,3 +109,13 @@ export function toastAnswersSubmitted() {
     duration: 3000,
   })
 }
+
+/**
+ * Show session expired toast
+ */
+export function toastSessionExpired() {
+  toast.warning("Session expired", {
+    description: "The workflow session has ended. Start a new workflow to continue.",
+    duration: 5000,
+  })
+}

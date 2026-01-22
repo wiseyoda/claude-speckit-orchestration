@@ -4,6 +4,7 @@ import { useMemo, useCallback } from 'react'
 import { useProjects } from '@/hooks/use-projects'
 import { useConnection } from '@/contexts/connection-context'
 import { useWorkflowList } from '@/hooks/use-workflow-list'
+import { useProjectPhases } from '@/hooks/use-project-phases'
 import { ProjectCard } from './project-card'
 import { EmptyState } from './empty-state'
 import { GlassCard } from '@/components/design-system'
@@ -51,6 +52,9 @@ export function ProjectList() {
   // Fetch active workflows for all projects (with polling)
   const { executions: workflowExecutions, refresh: refreshWorkflows } =
     useWorkflowList(projectIds)
+
+  // Fetch phase info for all projects (next phase from roadmap)
+  const { phases: projectPhases } = useProjectPhases(projects)
 
   // Create workflow start handler for a specific project
   const createWorkflowStartHandler = useCallback(
@@ -177,18 +181,22 @@ export function ProjectList() {
 
   return (
     <div className="space-y-3">
-      {sortedProjects.map((project) => (
-        <ProjectCard
-          key={project.id}
-          project={project}
-          state={states.get(project.id)}
-          tasks={tasks.get(project.id)}
-          isUnavailable={project.isUnavailable}
-          isDiscovered={project.isDiscovered}
-          workflowExecution={workflowExecutions.get(project.id)}
-          onWorkflowStart={createWorkflowStartHandler(project.id)}
-        />
-      ))}
+      {sortedProjects.map((project) => {
+        const phaseInfo = projectPhases.get(project.id)
+        return (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            state={states.get(project.id)}
+            tasks={tasks.get(project.id)}
+            isUnavailable={project.isUnavailable}
+            isDiscovered={project.isDiscovered}
+            workflowExecution={workflowExecutions.get(project.id)}
+            onWorkflowStart={createWorkflowStartHandler(project.id)}
+            nextPhase={phaseInfo?.nextPhase}
+          />
+        )
+      })}
     </div>
   )
 }

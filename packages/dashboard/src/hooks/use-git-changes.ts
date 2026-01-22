@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface FileChange {
   path: string;
@@ -21,16 +21,28 @@ interface UseGitChangesResult {
   refresh: () => Promise<void>;
 }
 
+/** Debounce delay for refresh trigger (2 seconds) */
+const REFRESH_DEBOUNCE_MS = 2000;
+
 /**
  * Hook to fetch git file changes for a project
+ *
+ * @param projectPath - Absolute path to the project
+ * @param refreshTrigger - Optional value that triggers a refresh when changed (debounced)
  */
-export function useGitChanges(projectPath: string | null): UseGitChangesResult {
+export function useGitChanges(
+  projectPath: string | null,
+  refreshTrigger?: number
+): UseGitChangesResult {
   const [files, setFiles] = useState<FileChange[]>([]);
   const [totalAdditions, setTotalAdditions] = useState(0);
   const [totalDeletions, setTotalDeletions] = useState(0);
   const [totalFiles, setTotalFiles] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
+  // Track debounce timeout
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchChanges = useCallback(async () => {
     if (!projectPath) {
@@ -66,9 +78,34 @@ export function useGitChanges(projectPath: string | null): UseGitChangesResult {
     }
   }, [projectPath]);
 
+  // Initial fetch on mount/path change
   useEffect(() => {
     fetchChanges();
   }, [fetchChanges]);
+
+  // Debounced refresh on trigger change
+  useEffect(() => {
+    // Skip if no trigger value or initial render
+    if (refreshTrigger === undefined) {
+      return;
+    }
+
+    // Clear existing timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // Set new debounced fetch
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchChanges();
+    }, REFRESH_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, [refreshTrigger, fetchChanges]);
 
   return {
     files,

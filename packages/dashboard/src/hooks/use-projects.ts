@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useConnection } from '@/contexts/connection-context';
+import { useUnifiedData } from '@/contexts/unified-data-context';
 import type { ConnectionStatus } from './use-sse';
 
 interface Project {
@@ -38,7 +38,7 @@ async function fetchProjects(): Promise<{ projects: Project[]; error?: string }>
  * SSE registry events trigger a refetch to pick up changes in real-time.
  */
 export function useProjects(): ProjectsResult {
-  const { registry, connectionStatus, refetch: sseRefetch } = useConnection();
+  const { registry, connectionStatus, refetch: sseRefetch } = useUnifiedData();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

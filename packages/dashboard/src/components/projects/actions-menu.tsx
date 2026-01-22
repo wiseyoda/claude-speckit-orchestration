@@ -203,14 +203,11 @@ export function ActionsMenu({
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" disabled={isExecuting}>
+          <Button variant="ghost" size="icon-sm" disabled={isExecuting} className="text-zinc-500 hover:text-zinc-300">
             {isExecuting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <>
-                <MoreHorizontal className="h-4 w-4 mr-1" />
-                Actions
-              </>
+              <MoreHorizontal className="h-4 w-4" />
             )}
           </Button>
         </DropdownMenuTrigger>

@@ -106,8 +106,8 @@ Or manually:
 
 ### After Completing a Phase
 
-1. Update status in table above: ⬜ → ✅
-2. Archive phase: `specflow phase close`
+1. Run `/flow.verify` to verify the phase is complete
+2. Run `/flow.merge` to close, push, and merge (updates ROADMAP automatically)
 3. If USER GATE: get explicit user verification before proceeding
 
 ### Adding New Phases

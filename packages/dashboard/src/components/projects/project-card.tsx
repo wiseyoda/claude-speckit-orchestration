@@ -52,6 +52,8 @@ interface ProjectCardProps {
   workflowExecution?: WorkflowExecution | null
   /** Callback to start a workflow */
   onWorkflowStart?: (skill: string) => Promise<void>
+  /** Next phase from roadmap (when no active phase) */
+  nextPhase?: { number: string; name: string } | null
 }
 
 /**
@@ -213,6 +215,7 @@ export function ProjectCard({
   isDiscovered = false,
   workflowExecution,
   onWorkflowStart,
+  nextPhase,
 }: ProjectCardProps) {
   const phase = state?.orchestration?.phase
   const step = state?.orchestration?.step
@@ -254,197 +257,171 @@ export function ProjectCard({
 
   return (
     <Link href={`/projects/${project.id}`}>
-      <GlassCard
+      <div
         className={cn(
-          'p-4 transition-all hover:bg-surface-200/50 hover:border-surface-300',
+          'group relative flex items-center gap-4 px-4 py-3 rounded-xl',
+          'bg-surface-100/80 border border-surface-300/40',
+          'hover:bg-surface-200/60 hover:border-surface-300/60',
+          'transition-all duration-200',
           isUnavailable && 'opacity-60',
           isDiscovered && 'opacity-50 border-dashed'
         )}
       >
-        <div className="flex items-center gap-4">
-          {/* Project icon with activity indicator */}
-          <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-lg bg-surface-200 flex items-center justify-center">
-              <FolderGit2 className="h-5 w-5 text-surface-400" />
-            </div>
-            {isActive && (
-              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-success animate-glow-pulse" />
+        {/* Project icon with gradient and activity indicator */}
+        <div className="relative flex-shrink-0">
+          <div
+            className={cn(
+              'w-10 h-10 rounded-xl flex items-center justify-center',
+              'bg-gradient-to-br from-surface-200 to-surface-300/50',
+              'group-hover:from-accent/10 group-hover:to-purple-500/10',
+              'transition-all duration-200'
+            )}
+          >
+            <FolderGit2
+              className={cn(
+                'h-5 w-5 text-surface-400',
+                'group-hover:text-accent transition-colors'
+              )}
+            />
+          </div>
+          {isActive && (
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-surface-100 animate-pulse" />
+          )}
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          {/* Project name, branch, and workflow status */}
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-zinc-200 group-hover:text-white truncate transition-colors">
+              {project.name}
+            </h3>
+            {branchName !== 'main' && (
+              <span className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 rounded bg-surface-200/50 text-[10px] text-zinc-500 max-w-40 truncate">
+                <GitBranch className="h-2.5 w-2.5 flex-shrink-0" />
+                <span className="truncate">{branchName}</span>
+              </span>
+            )}
+            {workflowPillStatus !== 'idle' && (
+              <StatusPill status={workflowPillStatus} size="sm" />
+            )}
+            {isUnavailable && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-warning/15 text-warning rounded">
+                <AlertCircle className="h-2.5 w-2.5" />
+                Unavailable
+              </span>
             )}
           </div>
 
-          {/* Main content */}
-          <div className="flex-1 min-w-0">
-            {/* Project name row */}
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-medium text-white truncate">{project.name}</h3>
-
-              {/* Workflow status pill - only show when active */}
-              {workflowPillStatus !== 'idle' && (
-                <StatusPill status={workflowPillStatus} size="sm" />
-              )}
-
-              {isUnavailable && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-warning/20 text-warning rounded">
-                  <AlertCircle className="h-3 w-3" />
-                  Unavailable
-                </span>
-              )}
-            </div>
-
-            {/* Phase/Status row */}
+          {/* Phase info row */}
+          <div className="flex items-center gap-2 mt-1">
             {projectStatus === 'ready' ? (
-              <div className="flex items-center gap-2 text-sm">
-                {phase?.number || phase?.name ? (
-                  <>
-                    <span
-                      className={cn(
-                        'text-xs font-mono px-1.5 py-0.5 rounded',
-                        phaseComplete
-                          ? 'bg-success/20 text-success'
-                          : 'bg-accent/20 text-accent-light'
-                      )}
-                    >
-                      {phase?.number || '—'}
-                    </span>
-                    <span className="text-surface-400 truncate">
-                      {phase?.name?.replace(/-/g, ' ') || 'Unknown phase'}
-                    </span>
-
-                    {/* Progress percentage */}
-                    {hasTasks && (
-                      <>
-                        <span className="text-surface-500">•</span>
-                        <span className="text-surface-500 tabular-nums">
-                          {Math.round(progressPercent)}%
-                        </span>
-                      </>
-                    )}
-
-                    {/* Status indicators */}
-                    {phaseComplete ? (
-                      <>
-                        <span className="text-surface-500">•</span>
-                        <span className="text-xs text-success uppercase tracking-wide flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Complete
-                        </span>
-                      </>
-                    ) : isReadyToMerge ? (
-                      <>
-                        <span className="text-surface-500">•</span>
-                        <span className="text-xs text-accent uppercase tracking-wide flex items-center gap-1">
-                          <GitMerge className="h-3 w-3" />
-                          Ready to merge
-                        </span>
-                      </>
-                    ) : (
-                      step?.current && (
-                        <>
-                          <span className="text-surface-500">•</span>
-                          <span className="text-xs text-surface-400 uppercase tracking-wide">
-                            {step.current}
-                          </span>
-                        </>
-                      )
-                    )}
-
-                    {hasHealthWarning && (
-                      <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-warning" />
-                    )}
-                  </>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-success/20 text-success">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Ready to start
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 text-xs font-medium px-1.5 py-0.5 rounded',
-                    statusBadge.className
-                  )}
-                >
-                  <StatusIcon className="h-3 w-3" />
-                  {statusBadge.label}
-                </span>
-              </div>
-            )}
-
-            {/* Branch row */}
-            <div className="flex items-center gap-2 mt-1 text-xs text-surface-500">
-              <GitBranch className="h-3 w-3" />
-              <span className="truncate">{branchName}</span>
-            </div>
-          </div>
-
-          {/* Right side actions */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Task progress bar */}
-            {hasTasks && (
-              <div className="flex items-center gap-2">
-                <div className="w-20 h-1.5 bg-surface-300 rounded-full overflow-hidden">
-                  <div
+              phase?.number || phase?.name ? (
+                <>
+                  <span
                     className={cn(
-                      'h-full rounded-full transition-all duration-300',
-                      progressPercent === 100
-                        ? 'bg-success'
-                        : progressPercent > 50
-                          ? 'bg-accent'
-                          : 'bg-warning'
+                      'text-[10px] font-mono px-1.5 py-0.5 rounded',
+                      phaseComplete
+                        ? 'bg-success/15 text-success'
+                        : 'bg-accent/15 text-accent'
                     )}
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <span className="text-xs text-surface-500 tabular-nums">
-                  {completedTasks}/{totalTasks}
-                </span>
-              </div>
-            )}
-
-            {/* Last updated */}
-            {lastUpdated && (
-              <div
+                  >
+                    {phase?.number || '—'}
+                  </span>
+                  <span className="text-xs text-zinc-500 truncate">
+                    {phase?.name?.replace(/-/g, ' ') || 'Unknown phase'}
+                  </span>
+                  {phaseComplete && (
+                    <CheckCircle2 className="h-3 w-3 text-success flex-shrink-0" />
+                  )}
+                  {isReadyToMerge && !phaseComplete && (
+                    <GitMerge className="h-3 w-3 text-accent flex-shrink-0" />
+                  )}
+                  {hasHealthWarning && (
+                    <AlertTriangle className="h-3 w-3 text-warning flex-shrink-0" />
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    Ready
+                  </span>
+                  {nextPhase && (
+                    <>
+                      <span className="text-zinc-600">→</span>
+                      <span className="text-xs text-zinc-500 truncate">
+                        {nextPhase.name.replace(/-/g, ' ')}
+                      </span>
+                    </>
+                  )}
+                </>
+              )
+            ) : (
+              <span
                 className={cn(
-                  'flex items-center gap-1 text-xs',
-                  phaseComplete ? 'text-success' : 'text-surface-500'
+                  'inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded',
+                  statusBadge.className
                 )}
               >
-                {phaseComplete ? (
-                  <CheckCircle2 className="h-3 w-3" />
-                ) : (
-                  <Clock className="h-3 w-3" />
-                )}
-                <span>{formatRelativeTime(lastUpdated)}</span>
-              </div>
+                <StatusIcon className="h-2.5 w-2.5" />
+                {statusBadge.label}
+              </span>
             )}
 
+          </div>
+        </div>
+
+        {/* Right side - progress, branch, and time */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Task progress */}
+          {hasTasks && (
+            <div className="hidden md:flex items-center gap-2">
+              <div className="w-16 h-1 bg-surface-300/50 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    'h-full rounded-full transition-all duration-300',
+                    progressPercent === 100 ? 'bg-success' : 'bg-accent'
+                  )}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-zinc-500 tabular-nums w-8">
+                {completedTasks}/{totalTasks}
+              </span>
+            </div>
+          )}
+
+          {/* Last updated */}
+          {lastUpdated && (
+            <span className="hidden sm:block text-[10px] text-zinc-600 tabular-nums">
+              {formatRelativeTime(lastUpdated)}
+            </span>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center gap-1" onClick={(e) => e.preventDefault()}>
             <StatusButton
               projectId={project.id}
               projectPath={project.path}
               projectStatus={projectStatus as ActionProjectStatus}
               isAvailable={!isUnavailable}
             />
-
-            <div onClick={(e) => e.preventDefault()}>
-              <ActionsMenu
-                projectId={project.id}
-                projectName={project.name}
-                projectPath={project.path}
-                projectStatus={projectStatus as ActionProjectStatus}
-                schemaVersion={state?.schema_version}
-                isAvailable={!isUnavailable}
-                hasActiveWorkflow={hasActiveWorkflow}
-                onWorkflowStart={onWorkflowStart}
-              />
-            </div>
-
-            <ChevronRight className="h-5 w-5 text-surface-500" />
+            <ActionsMenu
+              projectId={project.id}
+              projectName={project.name}
+              projectPath={project.path}
+              projectStatus={projectStatus as ActionProjectStatus}
+              schemaVersion={state?.schema_version}
+              isAvailable={!isUnavailable}
+              hasActiveWorkflow={hasActiveWorkflow}
+              onWorkflowStart={onWorkflowStart}
+            />
           </div>
+
+          <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
         </div>
-      </GlassCard>
+      </div>
     </Link>
   )
 }

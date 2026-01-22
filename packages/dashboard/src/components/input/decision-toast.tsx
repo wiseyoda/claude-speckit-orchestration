@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { HelpCircle, MessageSquare } from 'lucide-react'
+import { HelpCircle, MessageSquare, X } from 'lucide-react'
 import { useState } from 'react'
 
 interface Question {
@@ -17,6 +17,8 @@ interface DecisionToastProps {
   currentIndex?: number
   onAnswer: (answer: string) => void
   onCustomAnswer?: (answer: string) => void
+  /** Dismiss the question without answering */
+  onDismiss?: () => void
   className?: string
 }
 
@@ -25,6 +27,7 @@ export function DecisionToast({
   currentIndex = 0,
   onAnswer,
   onCustomAnswer,
+  onDismiss,
   className,
 }: DecisionToastProps) {
   const [showCustomInput, setShowCustomInput] = useState(false)
@@ -63,6 +66,15 @@ export function DecisionToast({
             <span className="text-sm text-surface-500 ml-auto">
               {currentIndex + 1} of {questions.length}
             </span>
+          )}
+          {onDismiss && (
+            <button
+              onClick={onDismiss}
+              className="ml-auto p-1 rounded hover:bg-surface-300 text-surface-500 hover:text-white transition-colors"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
           )}
         </div>
 

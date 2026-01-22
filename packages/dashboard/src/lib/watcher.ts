@@ -5,10 +5,13 @@ import path from 'path';
 import {
   RegistrySchema,
   OrchestrationStateSchema,
+  WorkflowIndexSchema,
   type Registry,
   type OrchestrationState,
   type SSEEvent,
   type TasksData,
+  type WorkflowIndex,
+  type WorkflowData,
 } from '@specflow/shared';
 import { parseTasks, type ParseTasksOptions } from './task-parser';
 import {
@@ -29,6 +32,10 @@ let registryPath: string;
 let currentRegistry: Registry | null = null;
 let watchedStatePaths: Set<string> = new Set();
 let watchedTasksPaths: Set<string> = new Set();
+let watchedWorkflowPaths: Set<string> = new Set();
+
+// Cache workflow data to detect actual changes
+const workflowCache: Map<string, string> = new Map(); // projectId -> JSON string
 
 // Event listeners (SSE connections)
 type EventListener = (event: SSEEvent) => void;
@@ -203,6 +210,60 @@ async function handleTasksChange(projectId: string, tasksPath: string): Promise<
 }
 
 /**
+ * Read and parse workflow index file for a project
+ */
+async function readWorkflowIndex(indexPath: string): Promise<WorkflowIndex | null> {
+  try {
+    const content = await fs.readFile(indexPath, 'utf-8');
+    const parsed = WorkflowIndexSchema.parse(JSON.parse(content));
+    return parsed;
+  } catch {
+    // File doesn't exist or is invalid - return empty
+    return { sessions: [] };
+  }
+}
+
+/**
+ * Build WorkflowData from index
+ * Finds current active execution and includes all sessions
+ */
+function buildWorkflowData(index: WorkflowIndex): WorkflowData {
+  // Find current active execution (running or waiting_for_input)
+  const activeStates = ['running', 'waiting_for_input', 'detached', 'stale'];
+  const currentExecution = index.sessions.find(s => activeStates.includes(s.status)) ?? null;
+
+  return {
+    currentExecution,
+    sessions: index.sessions,
+  };
+}
+
+/**
+ * Handle workflow index file change
+ */
+async function handleWorkflowChange(projectId: string, indexPath: string): Promise<void> {
+  const index = await readWorkflowIndex(indexPath);
+  if (!index) return;
+
+  const data = buildWorkflowData(index);
+
+  // Check if data actually changed (avoid duplicate broadcasts)
+  const dataJson = JSON.stringify(data);
+  const cached = workflowCache.get(projectId);
+  if (cached === dataJson) {
+    return; // No change
+  }
+  workflowCache.set(projectId, dataJson);
+
+  broadcast({
+    type: 'workflow',
+    timestamp: new Date().toISOString(),
+    projectId,
+    data,
+  });
+}
+
+/**
  * Get tasks.md path for a project based on current phase
  * Tasks are in specs/{phase_number}-{phase_name_slug}/tasks.md
  * The directory name uses the branch format (lowercase, hyphenated)
@@ -253,8 +314,9 @@ async function updateWatchedPaths(registry: Registry): Promise<void> {
 
   const newStatePaths = new Set<string>();
   const newTasksPaths = new Set<string>();
+  const newWorkflowPaths = new Set<string>();
 
-  // Get state and tasks file paths for all projects
+  // Get state, tasks, and workflow file paths for all projects
   for (const [projectId, project] of Object.entries(registry.projects)) {
     // Auto-migrate state files from .specify/ to .specflow/ if needed
     await migrateStateFiles(project.path);
@@ -311,6 +373,29 @@ async function updateWatchedPaths(registry: Registry): Promise<void> {
         projectTasksPaths.delete(projectId);
       }
     }
+
+    // Add workflow index path for this project
+    const workflowIndexPath = path.join(project.path, '.specflow', 'workflows', 'index.json');
+    newWorkflowPaths.add(workflowIndexPath);
+
+    // Add new workflow paths to watcher and broadcast initial data
+    if (!watchedWorkflowPaths.has(workflowIndexPath)) {
+      watcher.add(workflowIndexPath);
+      console.log(`[Watcher] Added workflow index: ${workflowIndexPath}`);
+
+      // Broadcast initial workflow data
+      const index = await readWorkflowIndex(workflowIndexPath);
+      if (index) {
+        const data = buildWorkflowData(index);
+        workflowCache.set(projectId, JSON.stringify(data));
+        broadcast({
+          type: 'workflow',
+          timestamp: new Date().toISOString(),
+          projectId,
+          data,
+        });
+      }
+    }
   }
 
   // Remove old state paths from watcher
@@ -329,14 +414,23 @@ async function updateWatchedPaths(registry: Registry): Promise<void> {
     }
   }
 
+  // Remove old workflow paths from watcher
+  for (const oldPath of watchedWorkflowPaths) {
+    if (!newWorkflowPaths.has(oldPath)) {
+      watcher.unwatch(oldPath);
+      console.log(`[Watcher] Removed workflow index: ${oldPath}`);
+    }
+  }
+
   watchedStatePaths = newStatePaths;
   watchedTasksPaths = newTasksPaths;
+  watchedWorkflowPaths = newWorkflowPaths;
 }
 
 /**
  * Get project ID and file type for a watched file path
  */
-function getProjectInfoForPath(filePath: string): { projectId: string; fileType: 'state' | 'tasks' } | null {
+function getProjectInfoForPath(filePath: string): { projectId: string; fileType: 'state' | 'tasks' | 'workflow' } | null {
   if (!currentRegistry) return null;
 
   for (const [projectId, project] of Object.entries(currentRegistry.projects)) {
@@ -355,6 +449,12 @@ function getProjectInfoForPath(filePath: string): { projectId: string; fileType:
         filePath.endsWith(`${path.sep}tasks.md`) &&
         watchedTasksPaths.has(filePath)) {
       return { projectId, fileType: 'tasks' };
+    }
+
+    // Check if this is a workflow index file for this project
+    const workflowIndexPath = path.join(project.path, '.specflow', 'workflows', 'index.json');
+    if (filePath === workflowIndexPath && watchedWorkflowPaths.has(filePath)) {
+      return { projectId, fileType: 'workflow' };
     }
   }
   return null;
@@ -384,7 +484,7 @@ export async function initWatcher(): Promise<void> {
     if (filePath === registryPath) {
       debouncedChange(filePath, handleRegistryChange);
     } else {
-      // State or tasks file change
+      // State, tasks, or workflow file change
       const info = getProjectInfoForPath(filePath);
       if (info) {
         if (info.fileType === 'state') {
@@ -397,6 +497,8 @@ export async function initWatcher(): Promise<void> {
           });
         } else if (info.fileType === 'tasks') {
           debouncedChange(filePath, () => handleTasksChange(info.projectId, filePath));
+        } else if (info.fileType === 'workflow') {
+          debouncedChange(filePath, () => handleWorkflowChange(info.projectId, filePath));
         }
       }
     }
@@ -488,6 +590,28 @@ export async function getAllTasks(): Promise<Map<string, TasksData>> {
 }
 
 /**
+ * Get all current workflow data for registered projects
+ */
+export async function getAllWorkflows(): Promise<Map<string, WorkflowData>> {
+  const workflows = new Map<string, WorkflowData>();
+
+  if (!currentRegistry) return workflows;
+
+  for (const [projectId, project] of Object.entries(currentRegistry.projects)) {
+    const workflowIndexPath = path.join(project.path, '.specflow', 'workflows', 'index.json');
+    const index = await readWorkflowIndex(workflowIndexPath);
+    if (index) {
+      const data = buildWorkflowData(index);
+      workflows.set(projectId, data);
+      // Update cache
+      workflowCache.set(projectId, JSON.stringify(data));
+    }
+  }
+
+  return workflows;
+}
+
+/**
  * Start heartbeat timer for a listener
  */
 export function startHeartbeat(listener: EventListener): NodeJS.Timeout {
@@ -509,7 +633,9 @@ export async function closeWatcher(): Promise<void> {
     listeners.clear();
     watchedStatePaths.clear();
     watchedTasksPaths.clear();
+    watchedWorkflowPaths.clear();
     projectTasksPaths.clear();
+    workflowCache.clear();
     currentRegistry = null;
     debounceTimers.forEach((timer) => clearTimeout(timer));
     debounceTimers.clear();

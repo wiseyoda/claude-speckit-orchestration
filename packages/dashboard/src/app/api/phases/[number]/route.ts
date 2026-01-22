@@ -215,6 +215,15 @@ function extractPhaseFromHistory(historyContent: string, phaseNumber: string): O
 }
 
 /**
+ * Strip YAML frontmatter from markdown content
+ */
+function stripFrontmatter(content: string): string {
+  // Match frontmatter: starts with ---, ends with ---
+  const frontmatterRegex = /^---\s*\n[\s\S]*?\n---\s*\n?/;
+  return content.replace(frontmatterRegex, '').trim();
+}
+
+/**
  * Find and read a phase file from .specify/phases/
  */
 async function readPhaseFile(projectPath: string, phaseNumber: string): Promise<Omit<PhaseDetail, 'artifacts' | 'artifactsLocation'> | null> {
@@ -273,7 +282,7 @@ async function readPhaseFile(projectPath: string, phaseNumber: string): Promise<
       name,
       status,
       source: 'phase_file',
-      content,
+      content: stripFrontmatter(content),
       goal,
       dependencies,
       complexity,

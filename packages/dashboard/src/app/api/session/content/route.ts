@@ -91,11 +91,20 @@ export async function GET(request: Request) {
       elapsed = Date.now() - startDate.getTime();
     }
 
+    // Convert tool calls to serializable format (remove input for size)
+    const toolCalls = sessionData.toolCalls.map((tc) => ({
+      name: tc.name,
+      operation: tc.operation,
+      files: tc.files,
+    }));
+
     return NextResponse.json({
       messages: sessionData.messages,
       filesModified: sessionData.filesModified.size,
       elapsed,
       sessionId,
+      toolCalls,
+      currentTodos: sessionData.currentTodos,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

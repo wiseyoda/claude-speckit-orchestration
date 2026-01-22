@@ -290,21 +290,12 @@ Then ask user using `AskUserQuestion` tool:
 }
 ```
 
-If no candidates found, ask:
+If no candidates found, **proceed automatically without asking**:
+- Mark phase as reviewed in state
+- Delete the archive directory
+- Report: "No promotable content found in phase NNNN. Archive cleaned up."
 
-```json
-{
-  "questions": [{
-    "question": "No promotable content found. Mark as reviewed?",
-    "header": "Review",
-    "options": [
-      {"label": "Yes", "description": "Mark reviewed, delete archive"},
-      {"label": "No", "description": "Keep archive for manual review"}
-    ],
-    "multiSelect": false
-  }]
-}
-```
+No user confirmation needed - archive contents remain in git history if ever needed.
 
 Group candidates by target document and present in batches of 5.
 

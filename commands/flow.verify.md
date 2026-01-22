@@ -1,5 +1,5 @@
 ---
-description: Verify feature completion, compliance with memory documents, checklist status, and readiness for user verification. Updates ROADMAP.md with status.
+description: Verify feature completion, compliance with memory documents, checklist status, and readiness for merge.
 handoffs:
   - label: Start Next Feature
     agent: specflow.specify
@@ -22,21 +22,21 @@ $ARGUMENTS
 Arguments:
 
 - Empty: Run full verification (tasks, checklists, memory, user gate)
-- `--dry-run`: Verify without closing phase (preview mode)
+- `--dry-run`: Preview verification without updating state
 - `--skip-memory`: Skip memory document compliance check
 
 You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Verify a completed feature phase is ready to close:
+Verify a completed feature phase is ready for merge:
 
 1. All tasks complete (or explicitly deferred)
 2. All checklists pass
 3. Implementation complies with memory documents
 4. User gate satisfied (if applicable)
 
-Then close the phase via `specflow phase close`.
+**Note**: This command verifies readiness but does NOT close the phase. Use `/flow.merge` to close, push, and merge.
 
 ---
 
@@ -48,7 +48,7 @@ Then close the phase via `specflow phase close`.
 2. [VERIFY] IMPL_GATE - Verify all tasks complete
 3. [VERIFY] VERIFY_GATE - Complete all checklists
 4. [VERIFY] MEMORY - Check against memory docs
-5. [VERIFY] CLOSE - Close phase and report
+5. [VERIFY] REPORT - Mark verified and report
 
 Set [VERIFY] CONTEXT to in_progress.
 
@@ -190,7 +190,7 @@ Check implementation against memory documents in `.specify/memory/`:
 
 If any FAIL status, address issues before proceeding.
 
-Use TodoWrite: mark [VERIFY] MEMORY complete, mark [VERIFY] CLOSE in_progress.
+Use TodoWrite: mark [VERIFY] MEMORY complete, mark [VERIFY] REPORT in_progress.
 
 ---
 
@@ -218,40 +218,23 @@ Options:
 
 - **Yes, verified** - Proceed to close
 - **No, needs work** - Stop verification, list what needs fixing
-- **Skip gate** - Close without user verification (document why)
+- **Skip gate** - Mark verified without user verification (document why)
 
-**If no USER GATE**: Proceed directly to close.
+**If no USER GATE**: Proceed directly to mark verified.
 
 ---
 
-## Step 6: Close Phase
+## Step 6: Mark Verification Complete
 
-If `--dry-run` was specified, show what would happen and stop:
+**IMPORTANT**: Do NOT close the phase here. Only `/flow.merge` should close phases.
 
-```text
-DRY RUN - Would perform:
-1. Update ROADMAP.md: Phase {number} → Complete
-2. Archive phase to HISTORY.md
-3. Handle deferred items
-4. Reset orchestration state
-
-No changes made.
-```
-
-Otherwise, close the phase:
+Update the orchestration state to indicate verification passed:
 
 ```bash
-specflow phase close --json
+specflow state set orchestration.step.current=verified
 ```
 
-This automatically:
-
-- Updates ROADMAP.md status to complete
-- Archives phase to HISTORY.md
-- Scans for deferred items and adds to BACKLOG.md
-- Resets orchestration state for next phase
-
-Use TodoWrite: mark [VERIFY] CLOSE complete.
+Use TodoWrite: mark [VERIFY] REPORT complete.
 
 ---
 
@@ -263,7 +246,7 @@ Display summary:
 # Verification Complete
 
 **Phase**: {number} - {name}
-**Status**: COMPLETE
+**Status**: VERIFIED (Ready for Merge)
 
 ## Summary
 
@@ -274,22 +257,21 @@ Display summary:
 | Memory Compliance | PASS                |
 | User Gate         | PASS / N/A          |
 
-## ROADMAP Updated
-
-Phase {number} marked complete.
-
-## Next Phase
-
-Phase {next_number}: {next_name}
-Run `/flow.orchestrate` to continue.
-
 ## How to Verify & Test
 
-Detailed instructions on how to verify this test as a user. Should include any instructions around how to start the dev server, add any environment variables, etc. Speak in plain english and be specific.
+Detailed instructions on how to verify this feature as a user. Include:
+- How to start the dev server
+- Any required environment variables
+- Step-by-step testing instructions
+- Expected behavior
 
 ## Deferred Items
 
-{count} items added to BACKLOG.md
+{count} items will be added to BACKLOG.md on merge.
+
+## Next Step
+
+Run `/flow.merge` to close the phase, push changes, and merge to main.
 ```
 
 ---
@@ -321,9 +303,9 @@ If user approves:
 
 ### ROADMAP Integrity
 
-- Only mark complete if ALL verification checks pass
+- Only mark verified if ALL verification checks pass
 - USER GATE phases require explicit user confirmation
-- Use `specflow phase close` for all status updates
+- **Do NOT close phase** - only `/flow.merge` closes phases
 
 ### Context Efficiency
 

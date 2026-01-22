@@ -1,7 +1,13 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { SSEEvent, Registry, OrchestrationState, TasksData } from '@specflow/shared';
+import type {
+  SSEEvent,
+  Registry,
+  OrchestrationState,
+  TasksData,
+  WorkflowData,
+} from '@specflow/shared';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
@@ -9,6 +15,7 @@ interface SSEState {
   registry: Registry | null;
   states: Map<string, OrchestrationState>;
   tasks: Map<string, TasksData>;
+  workflows: Map<string, WorkflowData>;
   connectionStatus: ConnectionStatus;
   error: Error | null;
 }
@@ -24,6 +31,7 @@ export function useSSE(): SSEResult {
   const [registry, setRegistry] = useState<Registry | null>(null);
   const [states, setStates] = useState<Map<string, OrchestrationState>>(new Map());
   const [tasks, setTasks] = useState<Map<string, TasksData>>(new Map());
+  const [workflows, setWorkflows] = useState<Map<string, WorkflowData>>(new Map());
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [error, setError] = useState<Error | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -73,6 +81,14 @@ export function useSSE(): SSEResult {
 
           case 'tasks':
             setTasks((prev) => {
+              const next = new Map(prev);
+              next.set(data.projectId, data.data);
+              return next;
+            });
+            break;
+
+          case 'workflow':
+            setWorkflows((prev) => {
               const next = new Map(prev);
               next.set(data.projectId, data.data);
               return next;
@@ -134,6 +150,7 @@ export function useSSE(): SSEResult {
     registry,
     states,
     tasks,
+    workflows,
     connectionStatus,
     error,
     refetch,

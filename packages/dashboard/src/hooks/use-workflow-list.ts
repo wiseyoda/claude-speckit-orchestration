@@ -1,6 +1,22 @@
 'use client';
 
 /**
+ * @deprecated This hook will be removed in a future version.
+ *
+ * Migration guide:
+ * - Workflow data is now pushed via SSE events to the unified context
+ * - Use useUnifiedData() from '@/contexts/unified-data-context' to access workflows
+ *
+ * OLD:
+ *   const { executions } = useWorkflowList();
+ *   const execution = executions.get(projectId);
+ *
+ * NEW:
+ *   const { workflows } = useUnifiedData();
+ *   const workflowData = workflows.get(projectId);
+ *   const currentExecution = workflowData?.currentExecution;
+ *
+ * ---
  * Hook for fetching active workflow executions across all projects
  *
  * Used by ProjectList to display workflow status badges on project cards.
@@ -54,8 +70,9 @@ export function useWorkflowList(projectIds?: string[]): UseWorkflowListResult {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if any executions are active (require polling)
+  // Include 'detached' - the session may still be running even if we lost track
   const hasActiveWorkflows = Array.from(executions.values()).some(
-    (e) => e.status === 'running' || e.status === 'waiting_for_input'
+    (e) => e.status === 'running' || e.status === 'waiting_for_input' || e.status === 'detached'
   );
 
   // Clear any existing polling interval

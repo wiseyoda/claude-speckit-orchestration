@@ -32,7 +32,7 @@ export function AppLayout({
   className,
 }: AppLayoutProps) {
   const [internalActiveView, setInternalActiveView] = useState<ViewType>('dashboard')
-  const [isContextDrawerOpen, setIsContextDrawerOpen] = useState(false)
+  const [isContextDrawerOpen, setIsContextDrawerOpen] = useState(true)
 
   const activeView = controlledActiveView ?? internalActiveView
   const handleViewChange = onViewChange ?? setInternalActiveView

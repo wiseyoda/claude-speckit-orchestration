@@ -29,6 +29,7 @@ interface HistoryTimelineProps {
   state?: OrchestrationState | null
   phases?: Phase[]
   projectPath?: string
+  initialSelectedPhase?: string | null
   className?: string
 }
 
@@ -54,12 +55,15 @@ export function HistoryTimeline({
   state,
   phases: providedPhases,
   projectPath,
+  initialSelectedPhase,
   className,
 }: HistoryTimelineProps) {
   const phases = providedPhases ?? getDefaultPhases(state)
 
-  // Default to current/in-progress phase, otherwise fall back to first
-  const defaultPhase = phases.find((p) => p.status === 'in_progress') ?? phases[0]
+  // Default to initialSelectedPhase, then current/in-progress phase, otherwise fall back to first
+  const defaultPhase = initialSelectedPhase
+    ? phases.find((p) => p.number === initialSelectedPhase)
+    : phases.find((p) => p.status === 'in_progress') ?? phases[0]
   const [selectedPhaseNumber, setSelectedPhaseNumber] = useState<string | null>(
     defaultPhase?.number ?? null
   )
@@ -74,6 +78,13 @@ export function HistoryTimeline({
   // Ref for scrolling to current phase
   const timelineContainerRef = useRef<HTMLDivElement>(null)
   const currentPhaseRef = useRef<HTMLDivElement>(null)
+
+  // Update selection when initialSelectedPhase changes (e.g., navigating from dashboard)
+  useEffect(() => {
+    if (initialSelectedPhase && phases.find((p) => p.number === initialSelectedPhase)) {
+      setSelectedPhaseNumber(initialSelectedPhase)
+    }
+  }, [initialSelectedPhase, phases])
 
   // Update selection when phases change - prefer current/in-progress phase
   useEffect(() => {

@@ -21,8 +21,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useSessionMessages } from '@/hooks/use-session-messages';
-import { SessionMessageDisplay } from './session-message';
+import { SessionMessageDisplay } from '../session/session-message';
 import { SessionPendingState } from './session-pending-state';
+import { TodoPanel } from '../session/todo-panel';
 
 export interface SessionViewerDrawerProps {
   /** Whether the drawer is open */
@@ -128,6 +129,7 @@ export function SessionViewerDrawer({
     isLoading,
     error,
     activeSessionId,
+    currentTodos,
   } = useSessionMessages(projectPath, sessionId, isActive && open);
 
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
@@ -269,6 +271,11 @@ export function SessionViewerDrawer({
             </ScrollArea>
           )}
         </div>
+
+        {/* Todo panel */}
+        {currentTodos.length > 0 && (
+          <TodoPanel todos={currentTodos} />
+        )}
 
         {/* Follow-up input for historical sessions */}
         {showFollowUpInput && (

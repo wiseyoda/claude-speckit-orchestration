@@ -64,43 +64,34 @@ git status --short
 git diff --stat
 ```
 
-If there are uncommitted changes (staged or unstaged), **DO NOT automatically proceed**. These changes may have been made by another agent or process.
+If there are uncommitted changes (staged or unstaged), **include them in the phase commit by default**. Users running `/flow.merge` want to complete their phase - uncommitted changes are almost always related work.
 
-**CRITICAL: Present the changes to the user and ask explicitly:**
+**Only ask if changes look unusual:**
 
-Show the user:
-1. List of modified/added/deleted files (`git status --short`)
-2. Summary of changes (`git diff --stat`)
-3. For small changes, show the actual diff (`git diff`)
+Detect unusual changes by checking if ANY of these apply:
+- Changes to sensitive files: `.env*`, `*credentials*`, `*secret*`
+- Changes to `package.json`/`pnpm-lock.yaml` when phase tasks didn't involve dependency changes
+- Large deletions (>500 lines removed) not documented in phase tasks
+- Changes to files completely outside the project scope
 
-Then use `AskUserQuestion` to ask:
+**For unusual changes only**, use `AskUserQuestion`:
 
 ```json
 {
   "questions": [{
-    "question": "Uncommitted changes detected. How should these be handled?",
+    "question": "Uncommitted changes include files outside typical phase work. Include in commit?",
     "header": "Changes",
     "options": [
-      {"label": "Review first", "description": "Show me the full diff before deciding"},
-      {"label": "Commit with phase", "description": "Include these changes in the phase completion commit"},
-      {"label": "Stash changes", "description": "Stash changes and proceed (can restore later with git stash pop)"},
-      {"label": "Abort", "description": "Stop and let me handle these changes manually"}
+      {"label": "Yes, commit all", "description": "Include everything in the phase commit"},
+      {"label": "Review first", "description": "Show me the changes before proceeding"},
+      {"label": "Abort", "description": "Stop and let me handle manually"}
     ],
     "multiSelect": false
   }]
 }
 ```
 
-**Handle user choice:**
-
-| Choice | Action |
-|--------|--------|
-| Review first | Show full `git diff`, then ask again |
-| Commit with phase | Continue - changes will be included in phase closure commit |
-| Stash changes | Run `git stash push -m "Stashed before phase merge"`, continue |
-| Abort | Exit with message to handle changes manually |
-
-**NEVER silently discard or overwrite uncommitted changes.**
+**For normal changes**: Proceed without asking - include all changes in the phase commit.
 
 Use TodoWrite: mark [MERGE] PREFLIGHT complete, mark [MERGE] CLOSE in_progress.
 

@@ -1,4 +1,4 @@
-import { initWatcher, addListener, getCurrentRegistry, getAllStates, getAllTasks, startHeartbeat } from '@/lib/watcher';
+import { initWatcher, addListener, getCurrentRegistry, getAllStates, getAllTasks, getAllWorkflows, startHeartbeat } from '@/lib/watcher';
 import type { SSEEvent } from '@specflow/shared';
 
 // Initialize watcher on first request
@@ -70,6 +70,17 @@ export async function GET(): Promise<Response> {
           timestamp: new Date().toISOString(),
           projectId,
           data: taskData,
+        });
+      }
+
+      // Send current workflow data for all projects
+      const workflows = await getAllWorkflows();
+      for (const [projectId, workflowData] of workflows) {
+        send({
+          type: 'workflow',
+          timestamp: new Date().toISOString(),
+          projectId,
+          data: workflowData,
         });
       }
 

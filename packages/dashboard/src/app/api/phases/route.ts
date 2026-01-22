@@ -49,6 +49,18 @@ function hasUserGate(text: string): boolean {
 }
 
 /**
+ * Strip markdown formatting (bold, italic) from text
+ */
+function stripMarkdownFormatting(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1') // bold **text**
+    .replace(/__(.+?)__/g, '$1')     // bold __text__
+    .replace(/\*(.+?)\*/g, '$1')     // italic *text*
+    .replace(/_(.+?)_/g, '$1')       // italic _text_
+    .trim();
+}
+
+/**
  * Parse a table row into phase data
  */
 function parseTableRow(row: string): Phase | null {
@@ -66,7 +78,7 @@ function parseTableRow(row: string): Phase | null {
   if (!phaseMatch) return null;
 
   const number = phaseMatch[1];
-  const name = nameCell || '';
+  const name = stripMarkdownFormatting(nameCell || '');
   const status = parsePhaseStatus(statusCell || '');
   const hasGate = hasUserGate(gateCell || '') || hasUserGate(statusCell || '');
 

@@ -22,8 +22,8 @@ import { SessionViewerDrawer } from "@/components/projects/session-viewer-drawer
 import { useSessionHistory } from "@/hooks/use-session-history"
 import { useSessionMessages } from "@/hooks/use-session-messages"
 import { usePhaseHistory } from "@/hooks/use-phase-history"
+import { usePhaseDetail } from "@/hooks/use-phase-detail"
 import { useGitChanges } from "@/hooks/use-git-changes"
-import { useGitActivity } from "@/hooks/use-git-activity"
 import type { WorkflowIndexEntry } from "@/lib/services/workflow-service"
 import {
   toastWorkflowCancelled,
@@ -31,7 +31,7 @@ import {
 } from "@/lib/toast-helpers"
 import type { ProjectStatus } from "@/lib/action-definitions"
 import type { OrchestrationState, Task } from "@specflow/shared"
-import type { WorkflowSkill } from "@/hooks/use-workflow-skills"
+import { useWorkflowSkills, type WorkflowSkill } from "@/hooks/use-workflow-skills"
 
 /**
  * Determine project status from orchestration state
@@ -76,6 +76,7 @@ export default function ProjectDetailPage() {
   const { states, tasks, setSelectedProject } = useConnection()
   const { projects, loading: projectsLoading } = useProjects()
   const [activeView, setActiveView] = useState<ViewType>('dashboard')
+  const [historySelectedPhase, setHistorySelectedPhase] = useState<string | null>(null)
 
   // OmniBox ref for focus handling
   const omniBoxRef = useRef<OmniBoxHandle>(null)
@@ -93,13 +94,29 @@ export default function ProjectDetailPage() {
   const [isStartingWorkflow, setIsStartingWorkflow] = useState(false)
   const [isCancellingWorkflow, setIsCancellingWorkflow] = useState(false)
 
+  // Workflow skills for autocomplete
+  const { skills: workflowSkills } = useWorkflowSkills()
+
   // Question drawer state - removed in favor of toast
   const previousStatusRef = useRef<string | null>(null)
+
+  // Multi-question tracking: stores partial answers until all questions are answered
+  const [partialAnswers, setPartialAnswers] = useState<Record<string, string>>({})
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+
+  // Reset question tracking when workflow questions change (new question set)
+  const questionsKey = workflowExecution?.output?.questions?.map(q => q.question).join('|') ?? ''
+  useEffect(() => {
+    setPartialAnswers({})
+    setCurrentQuestionIndex(0)
+  }, [questionsKey])
 
   // Session viewer drawer state
   const [isSessionViewerOpen, setIsSessionViewerOpen] = useState(false)
   // Track which session to view: null = current workflow session, string = historical session
   const [selectedHistoricalSession, setSelectedHistoricalSession] = useState<WorkflowIndexEntry | null>(null)
+  // Track which session is selected in the Session console view (separate from drawer)
+  const [selectedConsoleSession, setSelectedConsoleSession] = useState<WorkflowIndexEntry | null>(null)
 
   // Session history for this project
   const {
@@ -114,32 +131,52 @@ export default function ProjectDetailPage() {
   const isWorkflowActive = workflowExecution?.status === 'running' ||
     workflowExecution?.status === 'waiting_for_input' ||
     workflowExecution?.status === 'detached'
+
+  // Determine which session to show in console: selected historical or current workflow
+  const consoleSessionId = selectedConsoleSession?.sessionId ?? workflowExecution?.sessionId ?? null
+  const isConsoleSessionActive = selectedConsoleSession
+    ? (selectedConsoleSession.status === 'running' || selectedConsoleSession.status === 'waiting_for_input' || selectedConsoleSession.status === 'detached')
+    : isWorkflowActive
+
   const {
     messages: sessionMessages,
     isLoading: sessionMessagesLoading,
+    currentTodos: sessionTodos,
   } = useSessionMessages(
     project?.path ?? null,
-    workflowExecution?.sessionId ?? null,
-    isWorkflowActive
+    consoleSessionId,
+    isConsoleSessionActive
   )
 
   // Phase history from ROADMAP.md
   const {
     phases: phaseHistory,
+    activePhase,
     isLoading: phaseHistoryLoading,
   } = usePhaseHistory(project?.path ?? null)
 
-  // Git changes (touched files)
+  // Determine focus phase: active phase if exists, otherwise first pending phase
+  const focusPhase = useMemo(() => {
+    if (activePhase) return activePhase
+    return phaseHistory.find((p) => p.status === 'not_started') ?? null
+  }, [activePhase, phaseHistory])
+
+  // Fetch detailed info for the focus phase
+  const {
+    detail: focusPhaseDetail,
+    isLoading: focusPhaseLoading,
+  } = usePhaseDetail(
+    project?.path ?? null,
+    focusPhase?.number ?? null,
+    focusPhase?.name
+  )
+
+  // Git changes (touched files) - refresh when session messages change
   const {
     files: touchedFiles,
     totalAdditions,
     totalDeletions,
-  } = useGitChanges(project?.path ?? null)
-
-  // Git activity (recent commits)
-  const {
-    activities: recentActivity,
-  } = useGitActivity(project?.path ?? null, 20)
+  } = useGitChanges(project?.path ?? null, sessionMessages.length)
 
   // Set selected project for command palette context
   useEffect(() => {
@@ -163,6 +200,10 @@ export default function ProjectDetailPage() {
     setIsStartingWorkflow(true)
     try {
       await startWorkflow(skill)
+      // Clear any selected historical session so the new workflow's session is shown
+      setSelectedConsoleSession(null)
+      // Navigate to session view when workflow starts
+      setActiveView('session')
     } finally {
       setIsStartingWorkflow(false)
     }
@@ -207,6 +248,11 @@ export default function ProjectDetailPage() {
     setIsSessionViewerOpen(true)
   }, [])
 
+  // Handle console session selection (for Session view dropdown)
+  const handleConsoleSessionSelect = useCallback((session: WorkflowIndexEntry | null) => {
+    setSelectedConsoleSession(session)
+  }, [])
+
   // Handle resuming a historical session with a follow-up message
   const [isResumingSession, setIsResumingSession] = useState(false)
   const handleResumeSession = useCallback(async (sessionId: string, followUp: string) => {
@@ -215,8 +261,9 @@ export default function ProjectDetailPage() {
       // Start workflow with the follow-up as skill, resuming the session
       // The follow-up message becomes the prompt, and we resume the session
       await startWorkflow(followUp, { resumeSessionId: sessionId })
-      // Clear selected historical session since we're now in a new workflow
+      // Clear session selections so the console shows the new/resumed workflow session
       setSelectedHistoricalSession(null)
+      setSelectedConsoleSession(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error'
       toastWorkflowError(message)
@@ -227,7 +274,40 @@ export default function ProjectDetailPage() {
   }, [startWorkflow])
 
   // Get workflow status for UI (must be before early returns for hooks consistency)
-  const workflowStatus = getWorkflowStatus(workflowExecution)
+  // Check if session has ended based on messages (ground truth from JSONL)
+  const hasSessionEnded = useMemo(() =>
+    sessionMessages.some(m => m.isSessionEnd)
+  , [sessionMessages])
+
+  // Derive effective workflow status - override to idle if session has ended
+  const workflowStatus: WorkflowStatus = useMemo(() => {
+    const polledStatus = getWorkflowStatus(workflowExecution)
+    // If messages show session ended but polling still says running, trust the messages
+    if (hasSessionEnded && (polledStatus === 'running' || polledStatus === 'waiting')) {
+      return 'idle'
+    }
+    return polledStatus
+  }, [workflowExecution, hasSessionEnded])
+
+  // Proactively update workflow metadata when session ends externally
+  // This ensures the workflow index reflects reality even if user ends session via CLI
+  useEffect(() => {
+    if (
+      hasSessionEnded &&
+      workflowExecution?.sessionId === consoleSessionId &&
+      (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input' || workflowExecution?.status === 'detached')
+    ) {
+      // Mark as completed (graceful end), not cancelled
+      const params = new URLSearchParams({
+        sessionId: workflowExecution.sessionId,
+        projectId,
+        status: 'completed', // Graceful session end
+      })
+      fetch(`/api/workflow/cancel?${params}`, { method: 'POST' }).catch(() => {
+        // Ignore errors - the session is already ended
+      })
+    }
+  }, [hasSessionEnded, workflowExecution?.sessionId, workflowExecution?.status, consoleSessionId, projectId])
 
   // Get current task from tasks data (in_progress)
   const currentTask: Task | null = useMemo(() =>
@@ -239,24 +319,131 @@ export default function ProjectDetailPage() {
     projectTasks?.tasks?.find((t) => t.status === 'todo') ?? null
   , [projectTasks])
 
-  // Handle OmniBox submit
-  const handleOmniBoxSubmit = useCallback((message: string) => {
-    // If waiting for input, submit as answer
-    if (workflowStatus === 'waiting' && workflowExecution?.output?.questions?.length) {
-      // For simplicity, use the message as answer to first question
-      submitAnswers({ '0': message })
-    } else {
-      // Otherwise start a new workflow with the message
-      handleWorkflowStart(message)
-    }
-  }, [workflowStatus, workflowExecution, submitAnswers, handleWorkflowStart])
+  // Handle decision toast answer - supports multi-question flows
+  // Defined before handleOmniBoxSubmit since it's called from there
+  const handleDecisionAnswer = useCallback(async (answer: string) => {
+    const questions = workflowExecution?.output?.questions
+    if (!questions?.length) return
 
-  // Handle decision toast answer
-  const handleDecisionAnswer = useCallback((answer: string) => {
-    if (workflowExecution?.output?.questions?.length) {
-      submitAnswers({ '0': answer })
+    const totalQuestions = questions.length
+
+    // Store the answer for the current question
+    const newAnswers = { ...partialAnswers, [String(currentQuestionIndex)]: answer }
+    setPartialAnswers(newAnswers)
+
+    // Check if we've answered all questions
+    const answeredCount = Object.keys(newAnswers).length
+
+    if (answeredCount >= totalQuestions) {
+      // All questions answered - submit all answers together
+      try {
+        await submitAnswers(newAnswers)
+        // Reset state after successful submission
+        setPartialAnswers({})
+        setCurrentQuestionIndex(0)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        // If execution tracking was lost, resume the session with the answers
+        if (errorMessage.includes('expired') || errorMessage.includes('not found')) {
+          const sessionId = workflowExecution?.sessionId
+          if (sessionId) {
+            // Format answers for resumption prompt
+            const answerSummary = Object.entries(newAnswers)
+              .map(([idx, ans]) => `${idx}: ${ans}`)
+              .join(', ')
+            await startWorkflow(`My answers: ${answerSummary}`, { resumeSessionId: sessionId })
+          } else {
+            toastWorkflowError('Unable to resume session - session ID not found')
+          }
+        } else {
+          toastWorkflowError(errorMessage)
+        }
+        // Reset state on error too
+        setPartialAnswers({})
+        setCurrentQuestionIndex(0)
+      }
+    } else {
+      // More questions to answer - advance to next question
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
     }
-  }, [workflowExecution, submitAnswers])
+  }, [workflowExecution, submitAnswers, startWorkflow, partialAnswers, currentQuestionIndex])
+
+  // Handle OmniBox submit
+  const handleOmniBoxSubmit = useCallback(async (message: string) => {
+    // If waiting for input, use the same multi-question handler as DecisionToast
+    if (workflowStatus === 'waiting' && workflowExecution?.output?.questions?.length) {
+      await handleDecisionAnswer(message)
+      return
+    }
+
+    // Check if this is a slash command (starts with /) or plain message
+    const isSlashCommand = message.trim().startsWith('/')
+
+    // If there's an active running session and user sends a plain message,
+    // resume that session with the message (intervene/guide behavior)
+    if (workflowStatus === 'running' && workflowExecution?.sessionId && !isSlashCommand) {
+      try {
+        await startWorkflow(message, { resumeSessionId: workflowExecution.sessionId })
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        toastWorkflowError(errorMessage)
+      }
+      return
+    }
+
+    // If user has explicitly selected a session (from dropdown), resume that session
+    // This applies to ANY input (plain text or slash command)
+    if (selectedConsoleSession?.sessionId) {
+      try {
+        // Cancel stale workflow state if needed (includes detached - may still have active session)
+        if (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input' || workflowExecution?.status === 'detached') {
+          await cancelWorkflow()
+        }
+        await startWorkflow(message, { resumeSessionId: selectedConsoleSession.sessionId })
+        // Clear selected session so console shows the new workflow's session
+        setSelectedConsoleSession(null)
+        // Navigate to session view
+        setActiveView('session')
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        toastWorkflowError(errorMessage)
+      }
+      return
+    }
+
+    // If viewing current workflow session (not selected from dropdown) and plain text,
+    // resume with that session
+    if (consoleSessionId && !isSlashCommand) {
+      try {
+        // Cancel stale workflow state if needed
+        if (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input' || workflowExecution?.status === 'detached') {
+          await cancelWorkflow()
+        }
+        await startWorkflow(message, { resumeSessionId: consoleSessionId })
+        // Navigate to session view
+        setActiveView('session')
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        toastWorkflowError(errorMessage)
+      }
+      return
+    }
+
+    // If no session context and user sends plain message, show error
+    if (!isSlashCommand) {
+      toastWorkflowError('No session selected. Use a /command to start a new workflow.')
+      return
+    }
+
+    // If session has ended but hook still thinks workflow is active,
+    // cancel it first to clear the stale state
+    if (hasSessionEnded && (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input' || workflowExecution?.status === 'detached')) {
+      await cancelWorkflow()
+    }
+
+    // Start a new workflow (slash command)
+    handleWorkflowStart(message)
+  }, [workflowStatus, workflowExecution, handleDecisionAnswer, startWorkflow, handleWorkflowStart, hasSessionEnded, cancelWorkflow, consoleSessionId, selectedConsoleSession, setActiveView])
 
   // Handle failed toast retry
   const handleRetry = useCallback(() => {
@@ -271,6 +458,25 @@ export default function ProjectDetailPage() {
     // Cancel the failed workflow to clear state
     cancelWorkflow()
   }, [cancelWorkflow])
+
+  // Handle ending a session by ID (from session console X button)
+  const handleEndSession = useCallback(async (sessionId: string) => {
+    try {
+      const params = new URLSearchParams({
+        sessionId,
+        projectId,
+      })
+      await fetch(`/api/workflow/cancel?${params}`, { method: 'POST' })
+      // Clear selected session if it was the one we cancelled
+      if (selectedConsoleSession?.sessionId === sessionId) {
+        setSelectedConsoleSession(null)
+      }
+      // Refresh session history to reflect the cancelled status
+      refreshSessionHistory()
+    } catch (error) {
+      console.error('Failed to end session:', error)
+    }
+  }, [projectId, selectedConsoleSession, refreshSessionHistory])
 
   // Build questions for decision toast
   const decisionQuestions = useMemo(() => {
@@ -332,7 +538,14 @@ export default function ProjectDetailPage() {
           <DashboardWelcome
             state={state}
             tasksData={projectTasks}
+            focusPhase={focusPhaseDetail}
+            focusPhaseLoading={focusPhaseLoading}
+            isFocusPhaseActive={!!activePhase}
             onStartWorkflow={handleWorkflowStart}
+            onViewHistory={(phaseNumber) => {
+              setHistorySelectedPhase(phaseNumber ?? null)
+              setActiveView('history')
+            }}
             isStartingWorkflow={isStartingWorkflow}
           />
         )
@@ -345,6 +558,13 @@ export default function ProjectDetailPage() {
             workflowStatus={workflowStatus}
             onStartWorkflow={() => handleWorkflowStart('implement')}
             onViewDashboard={() => setActiveView('dashboard')}
+            sessionHistory={sessionHistory}
+            selectedSession={selectedConsoleSession}
+            currentSessionId={workflowExecution?.sessionId}
+            onSelectSession={handleConsoleSessionSelect}
+            onEndSession={handleEndSession}
+            projectId={projectId}
+            currentTodos={sessionTodos}
           />
         )
       case 'tasks':
@@ -360,7 +580,14 @@ export default function ProjectDetailPage() {
             : 'pending' as const,
           artifacts: ['spec.md', 'plan.md', 'tasks.md'],
         }))
-        return <HistoryTimeline state={state} phases={phases} projectPath={project.path} />
+        return (
+          <HistoryTimeline
+            state={state}
+            phases={phases}
+            projectPath={project.path}
+            initialSelectedPhase={historySelectedPhase}
+          />
+        )
       default:
         return null
     }
@@ -379,7 +606,8 @@ export default function ProjectDetailPage() {
       touchedFiles={touchedFiles}
       totalAdditions={totalAdditions}
       totalDeletions={totalDeletions}
-      recentActivity={recentActivity}
+      projectId={projectId}
+      projectPath={project.path}
     />
   )
 
@@ -406,6 +634,12 @@ export default function ProjectDetailPage() {
           status={workflowStatus}
           onSubmit={handleOmniBoxSubmit}
           disabled={isStartingWorkflow}
+          skills={workflowSkills.map(s => ({
+            id: s.id,
+            name: s.name,
+            command: s.command,
+            description: s.description,
+          }))}
         />
       </div>
 
@@ -413,8 +647,10 @@ export default function ProjectDetailPage() {
       {workflowStatus === 'waiting' && decisionQuestions.length > 0 && (
         <DecisionToast
           questions={decisionQuestions}
+          currentIndex={currentQuestionIndex}
           onAnswer={handleDecisionAnswer}
           onCustomAnswer={handleOmniBoxSubmit}
+          onDismiss={handleDismiss}
         />
       )}
 
@@ -448,8 +684,8 @@ export default function ProjectDetailPage() {
         sessionId={selectedHistoricalSession?.sessionId ?? workflowExecution?.sessionId ?? null}
         isActive={
           selectedHistoricalSession
-            ? (selectedHistoricalSession.status === 'running' || selectedHistoricalSession.status === 'waiting_for_input')
-            : (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input')
+            ? (selectedHistoricalSession.status === 'running' || selectedHistoricalSession.status === 'waiting_for_input' || selectedHistoricalSession.status === 'detached')
+            : (workflowExecution?.status === 'running' || workflowExecution?.status === 'waiting_for_input' || workflowExecution?.status === 'detached')
         }
         onResumeSession={handleResumeSession}
         isResuming={isResumingSession}
