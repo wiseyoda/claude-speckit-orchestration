@@ -178,3 +178,37 @@ export function getHealthStatusMessage(health: ProcessHealthResult): string {
       return 'Unknown status';
   }
 }
+
+/**
+ * Check if a session ended gracefully (has Stop hook feedback marker)
+ *
+ * Reads the last few lines of the session JSONL to detect if the session
+ * completed normally (Stop hook feedback) vs terminated unexpectedly.
+ */
+export function didSessionEndGracefully(
+  projectPath: string,
+  sessionId: string | undefined
+): boolean {
+  if (!sessionId) return false;
+
+  const sessionDir = getProjectSessionDir(projectPath);
+  const sessionFile = join(sessionDir, `${sessionId}.jsonl`);
+
+  try {
+    if (!existsSync(sessionFile)) return false;
+
+    const { readFileSync } = require('fs');
+    const content = readFileSync(sessionFile, 'utf-8');
+
+    // Check the last portion of the file for Stop hook feedback
+    // This indicates a graceful session end
+    const lastChunk = content.slice(-5000); // Last 5KB should be enough
+
+    // Look for the Stop hook meta message pattern that indicates graceful end
+    // The pattern is: {"isMeta":true,"type":"user"...content contains "Stop hook feedback:"}
+    return lastChunk.includes('"isMeta":true') &&
+           lastChunk.includes('Stop hook feedback:');
+  } catch {
+    return false;
+  }
+}

@@ -29,7 +29,7 @@ import {
   killProcess,
   readPidFile,
 } from './process-spawner';
-import { checkProcessHealth, getHealthStatusMessage } from './process-health';
+import { checkProcessHealth, getHealthStatusMessage, didSessionEndGracefully } from './process-health';
 import { ensureReconciliation } from './process-reconciler';
 
 // =============================================================================
@@ -872,11 +872,22 @@ class WorkflowService {
       const health = checkProcessHealth(execution, projectPath);
 
       if (health.healthStatus === 'dead') {
-        execution.status = 'failed';
-        execution.error = 'Process terminated unexpectedly';
-        execution.updatedAt = new Date().toISOString();
-        execution.logs.push(`[HEALTH] ${getHealthStatusMessage(health)}`);
-        saveExecution(execution, projectPath);
+        // Check if the session ended gracefully before marking as failed
+        if (didSessionEndGracefully(projectPath, execution.sessionId)) {
+          execution.status = 'completed';
+          execution.completedAt = new Date().toISOString();
+          execution.updatedAt = new Date().toISOString();
+          execution.logs.push(`[HEALTH] Session completed gracefully`);
+          saveExecution(execution, projectPath);
+          // Also update the workflow index
+          this.updateSessionStatus(execution.sessionId, projectPath, 'completed');
+        } else {
+          execution.status = 'failed';
+          execution.error = 'Process terminated unexpectedly';
+          execution.updatedAt = new Date().toISOString();
+          execution.logs.push(`[HEALTH] ${getHealthStatusMessage(health)}`);
+          saveExecution(execution, projectPath);
+        }
       } else if (health.healthStatus === 'stale' && execution.status !== 'stale') {
         execution.status = 'stale';
         execution.error = getHealthStatusMessage(health);
@@ -1033,6 +1044,26 @@ class WorkflowService {
     }
 
     return true;
+  }
+
+  /**
+   * Update session status in workflow index (internal helper)
+   */
+  private updateSessionStatus(
+    sessionId: string | undefined,
+    projectPath: string,
+    status: 'completed' | 'cancelled' | 'failed'
+  ): void {
+    if (!sessionId) return;
+
+    const index = loadWorkflowIndex(projectPath);
+    const session = index.sessions.find(s => s.sessionId === sessionId);
+
+    if (session && ['running', 'waiting_for_input', 'detached', 'stale'].includes(session.status)) {
+      session.status = status;
+      session.updatedAt = new Date().toISOString();
+      saveWorkflowIndex(projectPath, index);
+    }
   }
 
   /**

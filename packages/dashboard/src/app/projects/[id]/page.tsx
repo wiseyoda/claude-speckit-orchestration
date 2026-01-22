@@ -541,11 +541,14 @@ export default function ProjectDetailPage() {
             focusPhase={focusPhaseDetail}
             focusPhaseLoading={focusPhaseLoading}
             isFocusPhaseActive={!!activePhase}
+            projectId={projectId}
+            projectName={project?.name}
             onStartWorkflow={handleWorkflowStart}
             onViewHistory={(phaseNumber) => {
               setHistorySelectedPhase(phaseNumber ?? null)
               setActiveView('history')
             }}
+            onNavigateToSession={() => setActiveView('session')}
             isStartingWorkflow={isStartingWorkflow}
           />
         )

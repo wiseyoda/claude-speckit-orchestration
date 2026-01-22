@@ -18,6 +18,10 @@ export {
   WorkflowSSEEventSchema,
   OrchestrationStateSchema,
   StepStatusSchema,
+  WorkflowStepSchema,
+  PhaseStatusSchema,
+  UserGateStatusSchema,
+  STEP_INDEX_MAP,
   type SSEEventType,
   type SSEEvent,
   type ConnectedEvent,
@@ -86,3 +90,58 @@ export {
   type WorkflowIndex,
   type WorkflowData,
 } from './workflow.js';
+
+// Orchestration schemas (Phase 1055)
+export {
+  OrchestrationBudgetSchema,
+  OrchestrationConfigSchema,
+  DEFAULT_ORCHESTRATION_CONFIG,
+  type OrchestrationBudget,
+  type OrchestrationConfig,
+} from './orchestration-config.js';
+
+export {
+  BatchStatusSchema,
+  BatchItemSchema,
+  BatchTrackingSchema,
+  BatchPlanSchema,
+  type BatchStatus,
+  type BatchItem,
+  type BatchTracking,
+  type BatchPlan,
+} from './batch-item.js';
+
+export {
+  OrchestrationStatusSchema,
+  OrchestrationPhaseSchema,
+  DecisionLogEntrySchema,
+  OrchestrationExecutionsSchema,
+  OrchestrationExecutionSchema,
+  createOrchestrationExecution,
+  type OrchestrationStatus,
+  type OrchestrationPhase,
+  type DecisionLogEntry,
+  type OrchestrationExecutions,
+  type OrchestrationExecution,
+} from './orchestration-execution.js';
+
+export {
+  ClaudeModelSchema,
+  ClaudeHelperErrorTypeSchema,
+  ClaudeHelperOptionsSchema,
+  ClaudeHelperResultSchema,
+  ClaudeHelperErrorSchema,
+  NextStepDecisionSchema,
+  BatchVerificationSchema,
+  HealingResultSchema,
+  isClaudeHelperError,
+  type ClaudeModel,
+  type ClaudeHelperErrorType,
+  type ClaudeHelperOptions,
+  type ClaudeHelperResult,
+  type ClaudeHelperError,
+  type ClaudeHelperResponse,
+  type NextStepDecision,
+  type BatchVerification,
+  type HealingResult,
+} from './claude-helper.js';
